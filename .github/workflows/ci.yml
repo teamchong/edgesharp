@@ -19,7 +19,7 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      - run: pnpm install
+      - run: pnpm install --no-frozen-lockfile
 
       - name: Install Zig
         uses: mlugg/setup-zig@v2
@@ -52,7 +52,7 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-      - run: pnpm install
+      - run: pnpm install --no-frozen-lockfile
       - run: cd docs && pnpm build
       - uses: cloudflare/wrangler-action@v3
         with:
