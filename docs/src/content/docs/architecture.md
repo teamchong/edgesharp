@@ -5,7 +5,7 @@ description: WASM engine, Durable Object pool, and caching design.
 
 ## System overview
 
-![edgesharp architecture diagram](/edgesharp/architecture.svg)
+![edgesharp architecture diagram](/architecture.svg)
 
 ## WASM engine
 

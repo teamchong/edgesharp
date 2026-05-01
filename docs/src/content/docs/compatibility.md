@@ -104,15 +104,15 @@ equivalent first-class flags.
 |---|---|---|
 | Source available | partial (loader API documented) | ✓ MIT, [GitHub](https://github.com/teamchong/edgesharp) |
 | Run on your own infrastructure | self-host Next.js, but the optimizer ships with the framework | ✓ Cloudflare Workers + R2 in your account |
-| Deploy time | n/a (managed) | One-click [Deploy to Cloudflare](/edgesharp/getting-started/) |
+| Deploy time | n/a (managed) | One-click [Deploy to Cloudflare](/getting-started/) |
 
 ## What's not on this page
 
 - **Latency comparison.** Neither party publishes a latency SLO for image
   optimization, and synthetic benchmarks on `wrangler dev` don't reflect edge
-  network behavior. The numbers in [Performance](/edgesharp/performance/) are
+  network behavior. The numbers in [Performance](/performance/) are
   local-machine measurements — directional, not a SLO.
 - **Quality / compression ratio.** Visual conformance against Sharp passes at
   PSNR ≥ 30 dB (visually indistinguishable). Output file sizes vary 0–10%
   vs Sharp depending on format and content. See
-  [Conformance](/edgesharp/conformance/) for the test harness.
+  [Conformance](/conformance/) for the test harness.
