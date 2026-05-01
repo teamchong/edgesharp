@@ -77,6 +77,43 @@ npx wrangler r2 bucket lifecycle set edgesharp-cache \
 
 This evicts cached output after 30 days; misses re-run the WASM transform.
 
+### Clearing the cache manually
+
+Three layers, three ways to clear:
+
+**L1 — Cloudflare Cache API.** Per-datacenter, transparent, evicts under
+memory pressure. Not directly purgeable from outside the Worker. Two ways
+to invalidate: bump the cache-key version (a code change that adds a
+version segment to `buildCacheKey`), or purge via [CF dashboard → Caching
+→ Purge Everything](https://developers.cloudflare.com/cache/how-to/purge-cache/).
+
+**L2 — R2 bucket.** Direct control via `wrangler`:
+
+```bash
+# List cached objects
+npx wrangler r2 object list edgesharp-cache
+
+# Delete one specific object
+npx wrangler r2 object delete edgesharp-cache "v1/photo.jpg/w640_q75.webp"
+
+# Delete every cached transform for a single source URL
+npx wrangler r2 object list edgesharp-cache --prefix "v1/photo.jpg/" \
+  | awk 'NR>1 {print $1}' \
+  | xargs -I {} npx wrangler r2 object delete edgesharp-cache {}
+
+# Nuclear option: empty the whole bucket (irreversible)
+npx wrangler r2 bucket delete edgesharp-cache --recursive
+npx wrangler r2 bucket create edgesharp-cache
+```
+
+You can also clear via the Cloudflare dashboard: **R2 → edgesharp-cache →
+Objects → select → Delete**.
+
+**L3 — Source bytes from origin.** Not edgesharp's cache; if you change
+`/photo.jpg` at the origin, edgesharp will keep serving the cached transform
+until L1 + L2 both evict (or you delete the R2 keys above). Bumping the URL
+(`/photo.jpg?v=2`) is the cheapest cache-bust on the caller side.
+
 ## Custom domain
 
 To serve from your own domain instead of `*.workers.dev`:
