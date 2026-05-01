@@ -29,6 +29,9 @@ jobs:
       - name: Build WASM (Zig + miniz + libwebp)
         run: cd wasm && ./build-wasm.sh && cp edgesharp.wasm ../src/wasm/
 
+      - name: Build demo (assets needed by wrangler dev for protocol tests)
+        run: pnpm run build:demo
+
       - name: Loader tests
         run: npx vitest run tests/loader.test.ts
 
