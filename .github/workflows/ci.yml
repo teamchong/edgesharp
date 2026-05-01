@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install
+
+      - name: Install Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+
+      - name: Build WASM (Zig + miniz + libwebp)
+        run: cd wasm && ./build-wasm.sh && cp edgesharp.wasm ../src/wasm/
+
+      - name: Loader tests
+        run: npx vitest run tests/loader.test.ts
+
+      - name: Visual conformance tests (vs Sharp)
+        run: npx vitest run tests/conformance/visual.test.ts
+
+      - name: Sizes conformance tests
+        run: npx vitest run tests/conformance/sizes.test.ts
+
+      - name: Protocol conformance tests (wrangler dev)
+        run: npx vitest run -c vitest.protocol.config.ts
+
+  deploy-docs:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install
+      - run: cd docs && pnpm build
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: docs
+          command: deploy

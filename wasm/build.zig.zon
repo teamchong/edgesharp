@@ -1,0 +1,7 @@
+.{
+    .name = .imagemode,
+    .version = "0.1.0",
+    .dependencies = .{},
+    .paths = .{""},
+    .fingerprint = 0x824b8e029ec45167,
+}

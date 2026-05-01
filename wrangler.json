@@ -1,0 +1,41 @@
+{
+  "name": "edgesharp",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-03-28",
+  "vars": {
+    "ORIGIN": "https://example.com",
+    "ALLOWED_ORIGINS": "*"
+  },
+  "assets": {
+    "directory": "./demo/out",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+    "not_found_handling": "single-page-application"
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "IMAGE_DO",
+        "class_name": "ImageDO"
+      }
+    ]
+  },
+  "r2_buckets": [
+    {
+      "binding": "CACHE_BUCKET",
+      "bucket_name": "edgesharp-cache"
+    }
+  ],
+  "rules": [
+    {
+      "type": "CompiledWasm",
+      "globs": ["**/*.wasm"]
+    }
+  ],
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_classes": ["ImageDO"]
+    }
+  ]
+}

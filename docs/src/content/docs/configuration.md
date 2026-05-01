@@ -1,0 +1,174 @@
+---
+title: Configuration
+description: All configuration options for edgesharp.
+---
+
+## wrangler.json
+
+```json
+{
+  "name": "edgesharp",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-03-28",
+  "vars": {
+    "ORIGIN": "https://your-nextjs-app.com",
+    "ALLOWED_ORIGINS": "https://cdn.example.com,https://images.unsplash.com",
+    "IMAGE_BACKEND": "auto",
+    "ENABLE_AVIF": "true"
+  },
+  "assets": {
+    "directory": "./demo/out",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+    "not_found_handling": "single-page-application"
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "IMAGE_DO", "class_name": "ImageDO" }]
+  },
+  "r2_buckets": [
+    { "binding": "CACHE_BUCKET", "bucket_name": "edgesharp-cache" }
+  ],
+  "rules": [
+    { "type": "CompiledWasm", "globs": ["**/*.wasm"] }
+  ],
+  "migrations": [
+    { "tag": "v1", "new_classes": ["ImageDO"] }
+  ]
+}
+```
+
+Native AVIF is bundled into the single Worker entry by default — no extra
+config or alternate entry point needed. Set `ENABLE_AVIF` to `"false"` in the
+Cloudflare dashboard to make AVIF requests fall back to WebP at runtime
+without redeploying. See [Backend modes](/edgesharp/backend-modes/).
+
+## Environment Variables
+
+### `ORIGIN` (required)
+
+The base URL prepended to path-relative `?url=` parameters. edgesharp fetches
+the original image from `${ORIGIN}/<path>` on cache miss.
+
+```json
+"ORIGIN": "https://your-nextjs-app.com"
+```
+
+### `ALLOWED_ORIGINS` (optional)
+
+Comma-separated list of additional allowed origins for **absolute** `?url=`
+parameters. The Worker accepts an absolute `https://` URL only when its origin
+(or hostname alone) matches an entry. Prevents the Worker from acting as an
+open proxy.
+
+```json
+"ALLOWED_ORIGINS": "https://cdn.example.com,https://assets.example.com"
+```
+
+Use `"*"` to allow any `https://` host. **Only do this for demos or internal
+deployments** — combine with [Cloudflare Rate Limiting](https://developers.cloudflare.com/waf/rate-limiting-rules/),
+[Bot Management](https://developers.cloudflare.com/bots/), and a tight Worker
+budget alert if the deployment is publicly reachable. The bundled
+`wrangler.json` ships with `"*"` so the demo's "paste any URL" playground
+works; production deployments should switch to a curated list.
+
+```json
+"ALLOWED_ORIGINS": "*"
+```
+
+See [Production Hardening](/edgesharp/production-hardening/) for the full
+checklist of what to tighten before publicly linking your Worker URL.
+
+### `ALLOWED_REFERERS` (optional)
+
+Caller allowlist — `ALLOWED_ORIGINS` controls *what URLs we fetch*;
+`ALLOWED_REFERERS` controls *who can call us*. Without it, anyone on the
+internet can hit your Worker URL and you pay the CPU.
+
+```json
+"ALLOWED_REFERERS": "https://yoursite.com,https://www.yoursite.com"
+```
+
+- **Unset** (default): no caller restriction. Fine for demos.
+- **Set**: requests with a non-matching `Referer` (or `Origin`) header get
+  `403 Forbidden referer`. Same-origin requests (the bundled demo calling its
+  own `/_next/image`) are always allowed.
+- **Missing Referer is rejected** when this is set. Strict — leave unset if
+  your traffic comes through `Referrer-Policy: no-referrer`.
+
+### `MAX_QUALITY` (optional, default: `"100"`)
+
+Hard cap on the `?q=` parameter. Values above the cap are silently clamped —
+the loader's emitted `srcSet` keeps working without errors.
+
+```json
+"MAX_QUALITY": "85"
+```
+
+Quality 85 is visually indistinguishable from 100 for typical web photos and
+encodes meaningfully faster (especially for AVIF). Useful as a cost cap
+against callers passing `q=100`.
+
+### `IMAGE_BACKEND` (optional, default: `"auto"`)
+
+Controls which engine processes images.
+
+| Value | Behavior | Per-transform cost |
+|---|---|---|
+| `"auto"` | WASM for everything. AVIF goes through the vendored libavif when `ENABLE_AVIF` isn't `"false"`, otherwise falls back to WebP. | None |
+| `"wasm"` | Same as `auto` minus the CF Images binding fallback (only relevant if `IMAGES` is bound). | None |
+| `"cf-images"` | Every request goes through the [Cloudflare Images](https://developers.cloudflare.com/images/pricing/) binding. | CF Images rates |
+
+### Per-format kill switches (optional)
+
+Runtime toggles for each output format. Default is enabled for everything.
+Set to `"false"` or `"0"` in the Cloudflare dashboard (no redeploy required)
+to drop a format from negotiation — the negotiator falls back to the next-best
+supported format. JPEG is the universal fallback and cannot be disabled.
+
+| Variable | When to disable | What you save |
+|---|---|---|
+| `ENABLE_AVIF` | You don't want to pay the AVIF encode cost (libavif is ~3-4× more CPU than WebP). AVIF requests fall back to WebP, which is what AVIF-capable browsers accept anyway and gets you ~60-80% of AVIF's compression gains. | The biggest CPU/cost win — typically the dominant per-transform expense. |
+| `ENABLE_WEBP` | You're seeing WebP rendering issues on a specific client, or you want strict-JPEG output for some downstream tool. Rare. | A small CPU win — WebP encode is ~5-10× cheaper than AVIF. |
+| `ENABLE_PNG` | You want to force JPEG even when only PNG is acceptable. Loses transparency support — only useful if you control the input set and know there's no alpha. | Negligible — PNG encode is already cheap. |
+
+```json
+{
+  "vars": {
+    "ENABLE_AVIF": "false"  // disable the most expensive format
+  }
+}
+```
+
+The most useful one is `ENABLE_AVIF` — set it to `"false"` if you want the
+"AVIF only when I can afford it" experience: the WASM stays bundled (so you
+can flip it back on without a redeploy), but the encoder is never instantiated
+and your CPU bill stays at WebP-tier pricing.
+
+## Cloudflare Images binding (optional)
+
+The single Worker entry doesn't need the `IMAGES` binding — it handles
+JPEG/PNG/WebP/AVIF natively. Bind it only if you set `IMAGE_BACKEND: "cf-images"`:
+
+```json
+{
+  "images": {
+    "binding": "IMAGES"
+  }
+}
+```
+
+## Allowed image widths
+
+edgesharp validates requested widths against the same defaults as Next.js:
+
+**Device sizes:** 640, 750, 828, 1080, 1200, 1920, 2048, 3840
+
+**Image sizes:** 16, 32, 48, 64, 96, 128, 256, 384
+
+Requests with widths outside this set are rejected with HTTP 400. The
+`?dpr=1|2|3` parameter multiplies the effective width before this check
+(post-multiplication still has to fit `MAX_WIDTH = 3840`).
+
+## Quality
+
+Quality parameter (`q`) must be between 1 and 100. Default is 75 (matching Next.js).

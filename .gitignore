@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build outputs (TS / Next.js / Wrangler / Astro / Zig)
+dist/
+demo/.next/
+demo/out/
+docs/.astro/
+docs/dist/
+.wrangler/
+wasm/.zig-cache/
+wasm/edgesharp.wasm
+
+# OS / editor cruft
+.DS_Store
+*.log
+.idea/
+.vscode/
+
+# Local secrets (keep .dev.vars.example committed if added later)
+.dev.vars
+
+# IMPORTANT: keep the prebuilt WASM binaries committed.
+# Cloudflare Workers Builds doesn't ship Zig, so wrangler deploy
+# in CI relies on the pre-built artifacts in src/wasm/ and
+# wasm/vendor/avif_enc/. Run `pnpm run build:wasm` locally
+# whenever Zig sources under wasm/src/ change.
+!src/wasm/*.wasm
+!wasm/vendor/avif_enc/*.wasm
