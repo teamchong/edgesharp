@@ -92,7 +92,7 @@ export default {
 
 If your Next.js app is on a different origin than the Worker, set
 `NEXT_PUBLIC_IMAGEMODE_URL=https://edgesharp.<your-subdomain>.workers.dev`
-at build time. See [Next.js integration](/edgesharp/nextjs-integration/) for
+at build time. See [Next.js integration](/nextjs-integration/) for
 the cross-origin variants.
 
 That's it — every `<Image>` component now goes through edgesharp.

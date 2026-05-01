@@ -6,7 +6,7 @@ hero:
   tagline: Drop-in image optimization for Next.js apps. Free at any scale. Powered by Zig WASM SIMD on Cloudflare Workers.
   actions:
     - text: Get Started
-      link: /edgesharp/getting-started/
+      link: /getting-started/
       icon: right-arrow
     - text: GitHub
       link: https://github.com/teamchong/edgesharp

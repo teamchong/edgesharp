@@ -42,7 +42,7 @@ config or alternate entry point needed. Set `DISABLED_FORMATS="avif"` in the
 Cloudflare dashboard to drop AVIF from negotiation at runtime — the
 negotiator skips it and picks the next-best format the browser accepts (WebP
 on AVIF-capable browsers). No redeploy required. See
-[Backend modes](/edgesharp/backend-modes/).
+[Backend modes](/backend-modes/).
 
 ## Environment Variables
 
@@ -77,7 +77,7 @@ works; production deployments should switch to a curated list.
 "ALLOWED_ORIGINS": "*"
 ```
 
-See [Production Hardening](/edgesharp/production-hardening/) for the full
+See [Production Hardening](/production-hardening/) for the full
 checklist of what to tighten before publicly linking your Worker URL.
 
 ### `ALLOWED_REFERERS` (optional)

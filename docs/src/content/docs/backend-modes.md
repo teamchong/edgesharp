@@ -145,7 +145,7 @@ This isn't a price race — `auto` (WASM) and `cf-images` are aimed at different
 **Pick `auto` (WASM) when:**
 - You want off the Vercel per-transform line item without paying anything new while you find product-market fit
 - Your image set is small or stable — first transforms are cached forever, repeat traffic is free egress
-- You're comfortable with the [supported format list](/edgesharp/compatibility/) (the common Next.js cases — JPEG, PNG, WebP, AVIF, animated/SVG passthrough; no CMYK, no RAW)
+- You're comfortable with the [supported format list](/compatibility/) (the common Next.js cases — JPEG, PNG, WebP, AVIF, animated/SVG passthrough; no CMYK, no RAW)
 
 **Pick `cf-images` when:**
 - The project has scaled and you want a managed image service with an SLA, focal-point cropping, signed URLs, and the encoder-quality work Cloudflare Images puts into output
@@ -154,4 +154,4 @@ This isn't a price race — `auto` (WASM) and `cf-images` are aimed at different
 
 The same `wrangler.json` and Next.js loader work for both. Switching is a single env-var flip in the dashboard — no redeploy, no URL changes.
 
-For a comparison against [Vercel's per-transform pricing](https://vercel.com/docs/image-optimization/limits-and-pricing) (the bill people are usually trying to get out from under), see [Compatibility → Costs](/edgesharp/compatibility/#costs).
+For a comparison against [Vercel's per-transform pricing](https://vercel.com/docs/image-optimization/limits-and-pricing) (the bill people are usually trying to get out from under), see [Compatibility → Costs](/compatibility/#costs).

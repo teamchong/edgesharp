@@ -142,4 +142,4 @@ from `wrangler.json`.
 - [ ] If routing AVIF through Cloudflare Images instead, set `IMAGE_BACKEND: "cf-images"` and bind `IMAGES`
 - [ ] Test with `pnpm run dev` before deploying
 - [ ] Set up an R2 lifecycle rule to bound cache size
-- [ ] Update your Next.js `images.loaderFile` to point at the Worker (see [Next.js integration](/edgesharp/nextjs-integration/))
+- [ ] Update your Next.js `images.loaderFile` to point at the Worker (see [Next.js integration](/nextjs-integration/))

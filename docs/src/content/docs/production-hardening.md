@@ -58,7 +58,7 @@ silently clamped — the loader's emitted `srcSet` keeps working without errors.
 
 ## 4. Decide which formats you serve
 
-[`DISABLED_FORMATS`](/edgesharp/configuration/) lets you trade quality for
+[`DISABLED_FORMATS`](/configuration/) lets you trade quality for
 cost without redeploying. It's a comma-separated list (recognized:
 `jpeg`, `png`, `webp`, `avif`, `gif`, `svg`). The biggest CPU win is
 dropping AVIF:
