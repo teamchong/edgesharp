@@ -37,6 +37,19 @@ export default function Home() {
       </header>
 
       <section className="mb-12">
+        <h2 className="text-lg font-semibold text-orange-300 mb-2">
+          Try it · paste any URL, pick any size or format
+        </h2>
+        <p className="text-sm text-neutral-400 mb-4 max-w-2xl">
+          Live transform running on this Cloudflare Worker. Paste an
+          image URL or pick a sample, change width/quality/format, hit
+          Optimize. The first request encodes via Zig WASM; every repeat
+          serves from cache in single-digit ms.
+        </p>
+        <Playground />
+      </section>
+
+      <section className="mb-12">
         <h2 className="text-sm font-semibold text-neutral-300 uppercase tracking-wide mb-4">
           The integration
         </h2>
@@ -50,13 +63,6 @@ export default function Home() {
           your <code className="text-orange-300">{`<Image>`}</code> components
           stay exactly as written.
         </p>
-      </section>
-
-      <section className="mb-12">
-        <h2 className="text-sm font-semibold text-neutral-300 uppercase tracking-wide mb-4">
-          Try it · paste any URL, pick any size or format
-        </h2>
-        <Playground />
       </section>
 
       <section className="mb-12">
