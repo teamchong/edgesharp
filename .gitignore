@@ -27,3 +27,7 @@ wasm/edgesharp.wasm
 # whenever Zig sources under wasm/src/ change.
 !src/wasm/*.wasm
 !wasm/vendor/avif_enc/*.wasm
+
+# Override any global gitignore that excludes pnpm-lock.yaml — CI needs it for
+# reproducible installs and actions/setup-node's pnpm cache lookup.
+!pnpm-lock.yaml
