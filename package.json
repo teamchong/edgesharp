@@ -24,12 +24,13 @@
   },
   "scripts": {
     "dev": "pnpm run build:loader && pnpm run build:demo && wrangler dev",
-    "build": "pnpm run build:wasm && pnpm run build:ts && pnpm run build:demo",
+    "build": "pnpm run build:loader && pnpm run build:demo",
+    "build:full": "pnpm run build:wasm && pnpm run build:ts && pnpm run build:demo",
     "build:wasm": "cd wasm && ./build-wasm.sh && mkdir -p ../src/wasm && cp edgesharp.wasm ../src/wasm/",
     "build:ts": "tsc && mkdir -p dist/wasm && cp src/wasm/edgesharp.wasm dist/wasm/",
     "build:loader": "tsc -p tsconfig.loader.json",
     "build:demo": "pnpm --filter edgesharp-demo run build",
-    "deploy": "pnpm run build:loader && pnpm run build:demo && wrangler deploy",
+    "deploy": "pnpm run build && wrangler deploy",
     "test": "vitest run",
     "test:node": "vitest run"
   },
