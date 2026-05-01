@@ -25,6 +25,7 @@ export default defineConfig({
         { label: "Performance", link: "/performance/" },
         { label: "Conformance", link: "/conformance/" },
         { label: "Compatibility", link: "/compatibility/" },
+        { label: "Limits", link: "/limits/" },
         { label: "Deployment", link: "/deployment/" },
         { label: "Production Hardening", link: "/production-hardening/" },
       ],
