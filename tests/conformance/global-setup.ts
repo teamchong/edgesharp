@@ -39,7 +39,7 @@ export async function setup() {
   originServer = spawn("node", [join(__dirname, "../origin-server.mjs")], {
     cwd: projectRoot,
     env: { ...process.env, PORT: "3456" },
-    stdio: process.env.CI ? "inherit" : "pipe",
+    stdio: "pipe",
   });
 
   // Wait for origin server
@@ -59,7 +59,7 @@ export async function setup() {
     ],
     {
       cwd: projectRoot,
-      stdio: process.env.CI ? "inherit" : "pipe",
+      stdio: "pipe",
       env: { ...process.env },
     },
   );
