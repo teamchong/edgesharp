@@ -70,20 +70,21 @@ The structural advantage of running on Cloudflare is [free R2 egress](https://de
 
 **Sources:**
 - Vercel: [Image Optimization Limits and Pricing](https://vercel.com/docs/image-optimization/limits-and-pricing)
-- Cloudflare Images: [pricing](https://developers.cloudflare.com/images/pricing/)
 - Cloudflare R2: [pricing](https://developers.cloudflare.com/r2/pricing/) (free egress)
 - HowdyGo: [Cutting Vercel Costs by 80%](https://www.howdygo.com/blog/cutting-howdygos-vercel-costs-by-80-without-compromising-ux-or-dx) — achieved ~$0.02/1K via self-hosted AWS Lambda
 
-| Monthly unique transforms | [Vercel (new)](https://vercel.com/docs/image-optimization/limits-and-pricing) | [CF Images (URL)](https://developers.cloudflare.com/images/pricing/) | edgesharp |
-|---|---|---|---|
-| 5K | $0 (free tier) | $0 (free tier) | ~$0 |
-| 100K | ~$5 ¹ | $47.50 | ~$0.10 |
-| 1M | ~$50 ¹ | $497.50 | ~$1.00 |
-| 10M | ~$500 ¹ | $4,997 | ~$10 |
+This table compares edgesharp against [Vercel's image-optimization pricing](https://vercel.com/docs/image-optimization/limits-and-pricing) — the bill people are usually trying to get out from under when they look for an alternative. [Cloudflare Images](https://developers.cloudflare.com/images/pricing/) is a separate, managed service with different ergonomics (focal-point cropping, signed URLs, SLA); pick that when you've outgrown self-operated WASM rather than as a price comparison.
+
+| Monthly unique transforms | [Vercel](https://vercel.com/docs/image-optimization/limits-and-pricing) | edgesharp |
+|---|---|---|
+| 5K | $0 (free tier) | ~$0 |
+| 100K | ~$5 ¹ | ~$0.10 |
+| 1M | ~$50 ¹ | ~$1.00 |
+| 10M | ~$500 ¹ | ~$10 |
 
 ¹ Vercel's $0.05/1K transform fee, plus cache reads ($0.40/1M) and cache writes ($4/1M); the table reflects transform fees only. Cache writes add roughly $4/1M misses on top.
 
-The single edgesharp Worker bundles the vendored libavif build (~1.5 MB WASM) so AVIF requests stay native; there are no per-transform fees regardless of which output format the browser asks for.
+The single edgesharp Worker bundles the vendored libavif build (~1.5 MB WASM) so AVIF requests stay on the WASM path. No per-transform fees on this path; if you flip `IMAGE_BACKEND: "cf-images"` later, requests route through Cloudflare Images and pick up its [pricing model](https://developers.cloudflare.com/images/pricing/) — your call when to make that switch.
 
 ### edgesharp cost breakdown
 

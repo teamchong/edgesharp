@@ -58,16 +58,20 @@ silently clamped — the loader's emitted `srcSet` keeps working without errors.
 
 ## 4. Decide which formats you serve
 
-[Per-format kill switches](/edgesharp/configuration/) let you trade quality
-for cost without redeploying. The biggest CPU win is disabling AVIF:
+[`DISABLED_FORMATS`](/edgesharp/configuration/) lets you trade quality for
+cost without redeploying. It's a comma-separated list (recognized:
+`jpeg`, `png`, `webp`, `avif`, `gif`, `svg`). The biggest CPU win is
+dropping AVIF:
 
 ```json
-"ENABLE_AVIF": "false"
+"DISABLED_FORMATS": "avif"
 ```
 
-AVIF requests then fall back to WebP — about 60–80% of AVIF's compression
-gains at a fraction of the encode cost. Flip it back on later via the
-Cloudflare dashboard if you want.
+The negotiator then picks WebP for AVIF-capable browsers — about 60–80%
+of AVIF's compression gains at a fraction of the encode cost. Re-enable
+later by removing it from the list in the Cloudflare dashboard. You can
+also drop passthrough surfaces — `DISABLED_FORMATS="svg,gif"` rejects
+SVG and animated GIF inputs with 415.
 
 ## 5. Set platform-level guardrails (Cloudflare dashboard)
 

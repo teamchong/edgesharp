@@ -11,7 +11,7 @@ libavif for native AVIF, Durable Objects for warm instances, 3-tier cache for sp
 - **Zig 0.16** → wasm32-freestanding with simd128 + relaxed_simd
 - **libwebp** (C, statically linked) → WebP encoding (patched cpu.c for `__wasm__` detection)
 - **miniz** (C, statically linked) → deflate/PNG compression
-- **libavif + libaom** (custom emcc build, always bundled; toggle via `ENABLE_AVIF`) → AVIF encoding
+- **libavif + libaom** (custom emcc build, always bundled; the `DISABLED_FORMATS` env var drops any of `jpeg`, `png`, `webp`, `avif`, `gif`, `svg` from negotiation) → AVIF encoding
 - **@jsquash/avif** → only the JS glue is used; the WASM is our own size-first build
 - **TypeScript** → Worker entry, Durable Object, cache orchestration, Next.js loader
 - **Cloudflare Workers** → runtime (wrangler dev for local testing)
@@ -26,7 +26,7 @@ libavif for native AVIF, Durable Objects for warm instances, 3-tier cache for sp
 4. **Deterministic DO names** — `img-slot-{0..7}` keeps V8 TurboFan warm
 5. **Premultiplied alpha** — always premultiply before Lanczos resize, unpremultiply after
 6. **One Worker entry, one bundle** — `src/worker.ts` always bundles libavif and ships at ~838 KB gzip. Free plan friendly: 838 KB fits the 1 MB compressed limit.
-7. **AVIF on by default, killable from the CF dashboard** — set `env.ENABLE_AVIF = "false"` to fall back to WebP for AVIF requests. libavif is statically imported so wrangler precompiles the WASM at deploy; the encoder is only instantiated on the first AVIF request, so the cold-boot cost over the old 90 KB bundle is small (~15–40 ms).
+7. **`DISABLED_FORMATS` runtime kill switch** — comma-separated env var in the CF dashboard. Recognized values: `jpeg`, `png`, `webp`, `avif`, `gif`, `svg`. Empty/unset = every format enabled. For transformed outputs (jpeg/png/webp/avif), the negotiator skips disabled formats and picks the next-best one the browser accepts; if every format the browser accepts is disabled, the Worker returns 415. For passthrough inputs (animated gif / svg), disabling rejects those source types with 415. AVIF is statically imported so wrangler precompiles the WASM at deploy; the encoder is only instantiated on the first AVIF request, so `DISABLED_FORMATS="avif"` (the typical setting for watching CPU spend) costs nothing on cold start.
 8. **Software math on freestanding** — `@log`, `@exp`, `@round` builtins recurse on wasm32-freestanding (they emit calls to `log`, `exp`, `round` symbols). Use `softLog64`, `softExp64`, `softRound64` from `libc_glue.zig` instead.
 9. **No runtime `WebAssembly.compile`** — Workers blocks codegen for security. All WASM must be statically imported so wrangler compiles it at deploy time.
 
@@ -112,7 +112,7 @@ pnpm run deploy        # single bundle — ~838 KB gz, fits Free plan's 1 MB com
 - `libc_glue.zig` provides software log/exp/pow/round because Zig builtins (`@log`, `@exp`, `@round`) on wasm32-freestanding emit calls to C symbols that recurse into our exports.
 - libwebp's `src/` symlink (`src/libwebp/src -> .`) is required for `#include "src/enc/..."` paths to resolve.
 - `tsc` over the full `src/` reports pre-existing strict-null errors in `worker.ts`/`optimizer.ts`. Use `pnpm run build:loader` (compiles only `loader.ts` via `tsconfig.loader.json`) when you only need `dist/loader.js` for the demo.
-- AVIF is on by default. Disable in the Cloudflare dashboard with `env.ENABLE_AVIF = "false"` if you want every AVIF request to fall back to WebP without changing the deploy.
+- All formats are on by default. The `DISABLED_FORMATS` env var in the Cloudflare dashboard takes a comma-separated list of formats to drop (recognized: `jpeg`, `png`, `webp`, `avif`, `gif`, `svg`). Transformed outputs (jpeg/png/webp/avif) skip disabled formats and pick the next-best one the browser accepts; passthrough inputs (gif animation / svg) get rejected with 415. If every format the browser accepts is disabled, the Worker returns 415.
 
 ## Conformance testing
 

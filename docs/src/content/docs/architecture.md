@@ -30,7 +30,7 @@ Three C libraries are statically linked into the single Worker:
 
 - **[miniz](https://github.com/richgel999/miniz)** (public domain) — deflate compression for PNG encoding. Smaller and more predictable than Zig stdlib's flate path on freestanding WASM.
 - **[libwebp](https://chromium.googlesource.com/webm/libwebp)** (BSD) — WebP encoding. Patched `cpu.c` to add `__wasm__` detection (upstream only checks for `EMSCRIPTEN`). Software math functions in `libc_glue.zig` replace Zig builtins that recurse on freestanding WASM.
-- **[libavif](https://github.com/AOMediaCodec/libavif) + [libaom](https://aomedia.googlesource.com/aom)** — AVIF encoder, always bundled. Custom-built (see `tools/build-avif/`) with size-first emcc flags and 8-bit-only AV1, weighing ~1.5 MB versus jsquash's stock ~3.4 MB build. Lazily instantiated on the first AVIF request, so Workers that never serve AVIF never pay its startup cost; flip `ENABLE_AVIF=false` in the Cloudflare dashboard for a runtime kill switch.
+- **[libavif](https://github.com/AOMediaCodec/libavif) + [libaom](https://aomedia.googlesource.com/aom)** — AVIF encoder, always bundled. Custom-built (see `tools/build-avif/`) with size-first emcc flags and 8-bit-only AV1, weighing ~1.5 MB versus jsquash's stock ~3.4 MB build. Lazily instantiated on the first AVIF request, so Workers that never serve AVIF never pay its startup cost; set `DISABLED_FORMATS="avif"` in the Cloudflare dashboard for a runtime kill switch.
 
 ### SIMD acceleration
 

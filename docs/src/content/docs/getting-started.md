@@ -70,9 +70,12 @@ pnpm run deploy
 ```
 
 Ships the bundled Next.js demo as static assets on the same Worker, so the
-deployed URL serves both `/` (demo) and `/_next/image` (API). AVIF is on by
-default; set `env.ENABLE_AVIF = "false"` in the Cloudflare dashboard if you
-want AVIF requests to fall back to WebP without redeploying.
+deployed URL serves both `/` (demo) and `/_next/image` (API). The
+`DISABLED_FORMATS` env var in the Cloudflare dashboard takes a
+comma-separated list (recognized: `jpeg`, `png`, `webp`, `avif`, `gif`,
+`svg`) to drop formats from negotiation without a redeploy.
+`DISABLED_FORMATS="avif"` is the typical setting since AVIF is the most
+CPU-expensive to encode.
 
 ## 5. Point your Next.js app at it
 

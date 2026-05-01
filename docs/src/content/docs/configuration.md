@@ -14,7 +14,7 @@ description: All configuration options for edgesharp.
     "ORIGIN": "https://your-nextjs-app.com",
     "ALLOWED_ORIGINS": "https://cdn.example.com,https://images.unsplash.com",
     "IMAGE_BACKEND": "auto",
-    "ENABLE_AVIF": "true"
+    "DISABLED_FORMATS": ""
   },
   "assets": {
     "directory": "./demo/out",
@@ -38,9 +38,11 @@ description: All configuration options for edgesharp.
 ```
 
 Native AVIF is bundled into the single Worker entry by default — no extra
-config or alternate entry point needed. Set `ENABLE_AVIF` to `"false"` in the
-Cloudflare dashboard to make AVIF requests fall back to WebP at runtime
-without redeploying. See [Backend modes](/edgesharp/backend-modes/).
+config or alternate entry point needed. Set `DISABLED_FORMATS="avif"` in the
+Cloudflare dashboard to drop AVIF from negotiation at runtime — the
+negotiator skips it and picks the next-best format the browser accepts (WebP
+on AVIF-capable browsers). No redeploy required. See
+[Backend modes](/edgesharp/backend-modes/).
 
 ## Environment Variables
 
@@ -114,35 +116,65 @@ Controls which engine processes images.
 
 | Value | Behavior | Per-transform cost |
 |---|---|---|
-| `"auto"` | WASM for everything. AVIF goes through the vendored libavif when `ENABLE_AVIF` isn't `"false"`, otherwise falls back to WebP. | None |
+| `"auto"` | WASM for everything. AVIF goes through the vendored libavif unless `avif` is listed in `DISABLED_FORMATS`, in which case the negotiator picks WebP. | None |
 | `"wasm"` | Same as `auto` minus the CF Images binding fallback (only relevant if `IMAGES` is bound). | None |
 | `"cf-images"` | Every request goes through the [Cloudflare Images](https://developers.cloudflare.com/images/pricing/) binding. | CF Images rates |
 
-### Per-format kill switches (optional)
+### `DISABLED_FORMATS` (optional)
 
-Runtime toggles for each output format. Default is enabled for everything.
-Set to `"false"` or `"0"` in the Cloudflare dashboard (no redeploy required)
-to drop a format from negotiation — the negotiator falls back to the next-best
-supported format. JPEG is the universal fallback and cannot be disabled.
+Comma-separated list of formats to drop. Empty / unset = every format
+enabled. Recognized values: `jpeg`, `png`, `webp`, `avif`, `gif`, `svg`.
 
-| Variable | When to disable | What you save |
+Two different effects depending on the format:
+
+- **Transformed outputs** (`jpeg`, `png`, `webp`, `avif`) — the negotiator
+  skips disabled formats and picks the next-best one the browser accepts.
+  If every format the browser accepts is disabled, the Worker returns 415.
+- **Passthrough inputs** (`gif`, `svg`) — animated GIF and SVG bytes are
+  normally returned unchanged with the original Content-Type. Disabling
+  rejects those source types with 415 instead.
+
+Set in the Cloudflare dashboard (no redeploy required).
+
+| Disabling | When to do it | What you save |
 |---|---|---|
-| `ENABLE_AVIF` | You don't want to pay the AVIF encode cost (libavif is ~3-4× more CPU than WebP). AVIF requests fall back to WebP, which is what AVIF-capable browsers accept anyway and gets you ~60-80% of AVIF's compression gains. | The biggest CPU/cost win — typically the dominant per-transform expense. |
-| `ENABLE_WEBP` | You're seeing WebP rendering issues on a specific client, or you want strict-JPEG output for some downstream tool. Rare. | A small CPU win — WebP encode is ~5-10× cheaper than AVIF. |
-| `ENABLE_PNG` | You want to force JPEG even when only PNG is acceptable. Loses transparency support — only useful if you control the input set and know there's no alpha. | Negligible — PNG encode is already cheap. |
+| `avif` | You don't want to pay the AVIF encode cost (libavif is ~3-4× more CPU than WebP). The negotiator picks WebP for AVIF-capable browsers, which gets you ~60-80% of AVIF's compression gains. | The biggest CPU/cost win — typically the dominant per-transform expense. |
+| `webp` | You're seeing WebP rendering issues on a specific client, or you want strict-JPEG output for some downstream tool. | A small CPU win — WebP encode is ~5-10× cheaper than AVIF. |
+| `png` | You want to force JPEG even when only PNG is acceptable. Loses transparency support — only safe if you control the input set and know there's no alpha. | Negligible — PNG encode is already cheap. |
+| `gif` | You don't want to serve animated GIFs (returns 415 for animated sources). | The Worker stops bandwidth-passing-through arbitrarily large GIF bytes. |
+| `svg` | You don't want to serve SVG (returns 415 for `image/svg+xml` sources). | Removes the SVG passthrough surface entirely. |
+
+Examples:
 
 ```json
 {
   "vars": {
-    "ENABLE_AVIF": "false"  // disable the most expensive format
+    "DISABLED_FORMATS": "avif"
   }
 }
 ```
 
-The most useful one is `ENABLE_AVIF` — set it to `"false"` if you want the
-"AVIF only when I can afford it" experience: the WASM stays bundled (so you
-can flip it back on without a redeploy), but the encoder is never instantiated
-and your CPU bill stays at WebP-tier pricing.
+```json
+{
+  "vars": {
+    "DISABLED_FORMATS": "svg,gif"
+  }
+}
+```
+
+```json
+{
+  "vars": {
+    "DISABLED_FORMATS": "avif,webp"
+  }
+}
+```
+
+The typical setting is `DISABLED_FORMATS="avif"` — the WASM stays bundled
+(so you can re-enable without a redeploy), the encoder is never
+instantiated, and your CPU bill stays at WebP-tier pricing.
+`DISABLED_FORMATS="svg,gif"` refuses passthrough inputs.
+`DISABLED_FORMATS="avif,webp"` collapses output to JPEG-only.
 
 ## Cloudflare Images binding (optional)
 

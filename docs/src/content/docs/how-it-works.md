@@ -58,22 +58,31 @@ The slot is chosen by hashing the image URL, distributing load evenly across the
 
 ## Format negotiation
 
-edgesharp reads the browser's `Accept` header and picks the best format. The
-single Worker bundle always includes libavif, so AVIF is on by default.
-Disable it at runtime with `ENABLE_AVIF=false` in the Cloudflare dashboard,
-or route everything through Cloudflare Images by setting
-`IMAGE_BACKEND: cf-images` (and binding `IMAGES`).
+edgesharp reads the browser's `Accept` header and picks the best format
+the browser accepts AND the operator has enabled. The `DISABLED_FORMATS`
+env var (comma-separated; recognized values: `jpeg`, `png`, `webp`, `avif`,
+`gif`, `svg`) drops formats from negotiation at runtime. For transformed
+outputs (jpeg/png/webp/avif), the negotiator skips disabled formats and
+picks the next-best one the browser accepts; if every format the browser
+accepts is disabled, the Worker returns 415. For passthrough inputs
+(animated gif / svg), the Worker rejects those source types with 415
+instead of returning the bytes unchanged.
 
-| Accept header | Default (`ENABLE_AVIF` unset/`"true"`) | `ENABLE_AVIF: "false"` | `IMAGE_BACKEND: cf-images` |
+You can also route every request through Cloudflare Images by setting
+`IMAGE_BACKEND: cf-images` (and binding `IMAGES`) — `DISABLED_FORMATS`
+still applies.
+
+| Accept header | `DISABLED_FORMATS=""` | `DISABLED_FORMATS="avif"` | `DISABLED_FORMATS="avif,webp"` |
 |---|---|---|---|
-| `image/avif, image/webp, */*` | **AVIF (vendored libavif)** | WebP (WASM) | AVIF (CF Images) |
-| `image/webp, */*` | WebP (WASM) | WebP (WASM) | WebP (CF Images) |
-| `*/*` | JPEG (WASM) | JPEG (WASM) | JPEG (CF Images) |
+| `image/avif, image/webp, */*` | AVIF (vendored libavif) | WebP (WASM) | JPEG (WASM) |
+| `image/webp, */*` | WebP (WASM) | WebP (WASM) | JPEG (WASM) |
+| `*/*` | JPEG (WASM) | JPEG (WASM) | JPEG (WASM) |
 
-When AVIF is disabled at runtime, AVIF requests gracefully fall back to WebP —
-typically 60–80% of the savings AVIF would give, with the same bundle on
-disk. The libavif encoder is only instantiated on the first AVIF request,
-so disabling it costs nothing on cold start either.
+When a transformed format is disabled, the negotiator picks the next-best
+one the browser accepts. AVIF → WebP keeps 60–80% of AVIF's compression
+savings; WebP → JPEG loses more but works everywhere. The bundled WASM
+doesn't shrink — encoders simply aren't instantiated when their format is
+disabled, so flipping the switch costs nothing on cold start either.
 
 ## Security
 

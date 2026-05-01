@@ -25,13 +25,34 @@ small (~15–40 ms): wrangler precompiles the libavif WASM at deploy time, and
 the encoder is only instantiated on the first AVIF request — Workers that
 never serve AVIF never pay the libavif startup cost.
 
-## Disabling AVIF without redeploying
+## `DISABLED_FORMATS` without redeploying
 
-Set the environment variable `ENABLE_AVIF` to `"false"` in the Cloudflare
-dashboard (Workers → your Worker → Settings → Variables). AVIF requests then
-fall back to WebP. The libavif WASM stays bundled — flipping the flag just
-skips encoder instantiation. Re-enable by removing the variable or setting
-it back to `"true"`.
+A single comma-separated env var drops formats at runtime. Recognized
+values: `jpeg`, `png`, `webp`, `avif`, `gif`, `svg`. Empty / unset =
+every format enabled. Set in the Cloudflare dashboard (Workers → your
+Worker → Settings → Variables).
+
+For transformed outputs (`jpeg`, `png`, `webp`, `avif`), the negotiator
+skips disabled formats and picks the next-best one the browser accepts.
+If every format the browser accepts is disabled, the Worker returns 415.
+For passthrough inputs (`gif`, `svg`), the Worker rejects those source
+types with 415 instead of returning the bytes unchanged.
+
+Typical settings:
+
+- `DISABLED_FORMATS="avif"` — drop AVIF first when CPU costs creep. AVIF
+  encode is ~3–4× more CPU than WebP; the negotiator picks WebP, which
+  keeps 60–80% of AVIF's compression savings.
+- `DISABLED_FORMATS="svg,gif"` — refuse SVG and animated GIF inputs.
+- `DISABLED_FORMATS="avif,webp"` — JPEG-only output.
+- `DISABLED_FORMATS="webp"` — forces JPEG output, useful when a downstream
+  tool can't read WebP.
+- `DISABLED_FORMATS="png"` — forces JPEG even when only PNG is acceptable;
+  loses transparency.
+
+The bundled WASM doesn't shrink either way — encoders simply aren't
+instantiated when their format is disabled, so changing the list costs
+nothing on cold start.
 
 ## R2 bucket setup
 
@@ -80,7 +101,7 @@ from `wrangler.json`.
 - [ ] Set `ORIGIN` to your production source URL
 - [ ] List external image hosts in `ALLOWED_ORIGINS` (or omit to disable absolute URLs)
 - [ ] Verify allowed widths match your `next.config.js` `images.deviceSizes` and `images.imageSizes`
-- [ ] Decide whether you want AVIF on (default) or off (set `ENABLE_AVIF: "false"` in the Cloudflare dashboard)
+- [ ] Decide which formats you want. Defaults: all on. Set `DISABLED_FORMATS` in the dashboard (comma-separated; recognized: `jpeg`, `png`, `webp`, `avif`, `gif`, `svg`) to drop any of them. `DISABLED_FORMATS="avif"` is the typical setting when watching CPU spend.
 - [ ] If routing AVIF through Cloudflare Images instead, set `IMAGE_BACKEND: "cf-images"` and bind `IMAGES`
 - [ ] Test with `pnpm run dev` before deploying
 - [ ] Set up an R2 lifecycle rule to bound cache size
