@@ -157,11 +157,12 @@ describe("content negotiation", () => {
     expect(res.headers.get("Content-Type")).toBe("image/avif");
   });
 
-  it("falls back to WebP when ENABLE_AVIF=false", async () => {
-    // The kill switch in CF dashboard. Default is enabled; the global setup
-    // does not pass ENABLE_AVIF, so this test asserts the *positive* path.
-    // Per-test env override would require restarting wrangler dev — covered
-    // instead by the hand-flip test in tests/avif-disable.test.ts (TODO).
+  it("negotiator picks WebP when DISABLED_FORMATS includes avif", async () => {
+    // The kill switch in CF dashboard. Default is empty (every format
+    // enabled); the global setup does not pass DISABLED_FORMATS, so this
+    // test asserts the *positive* path. Per-test env override would require
+    // restarting wrangler dev — covered instead by the hand-flip test in
+    // tests/avif-disable.test.ts (TODO).
     const res = await fetchImage("?url=/photo.jpg&w=640&q=75", {
       Accept: "image/avif,image/webp,*/*",
     });

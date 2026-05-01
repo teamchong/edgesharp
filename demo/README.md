@@ -26,9 +26,14 @@ be a path the build process can resolve and bundle separately. You can't
 |---|---|---|---|---|
 | `src/worker.ts` | ~1.73 MB | **~838 KB** | Free | JPEG, PNG, WebP, native AVIF |
 
-Free plan friendly: 838 KB fits the 1 MB compressed limit. AVIF is on by
-default; flip `env.ENABLE_AVIF = "false"` in the Cloudflare dashboard to make
-AVIF requests fall back to WebP without a redeploy.
+Free plan friendly: 838 KB fits the 1 MB compressed limit. The
+`DISABLED_FORMATS` env var in the Cloudflare dashboard takes a
+comma-separated list of formats to drop (recognized: `jpeg`, `png`, `webp`,
+`avif`, `gif`, `svg`). For transformed outputs, the negotiator skips
+disabled formats and picks the next-best one the browser accepts; for
+passthrough inputs (gif animation / svg), disabled means the Worker
+rejects with 415. `DISABLED_FORMATS="avif"` is the typical setting since
+AVIF is the most CPU-expensive to encode.
 
 The cold-boot cost over the old 90 KB JPEG/PNG/WebP-only bundle is small
 (~15–40 ms): wrangler precompiles the libavif WASM at deploy time, and the

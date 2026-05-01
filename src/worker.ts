@@ -46,29 +46,50 @@ interface Env {
   // 85 to silently clamp expensive q=100 requests — saves CPU and bandwidth.
   MAX_QUALITY?: string;
   IMAGE_BACKEND?: string; // "auto" | "wasm" | "cf-images"
-  // Per-format kill switches. Default: every format enabled. Set to "false"
-  // or "0" in the Cloudflare dashboard to disable a format at runtime — the
-  // negotiator falls back to the next-best supported format. JPEG is the
-  // universal fallback and cannot be disabled.
-  ENABLE_AVIF?: string;  // disable to drop the most expensive encode (~3-4× more CPU than WebP)
-  ENABLE_WEBP?: string;  // disable to force JPEG; rare, but useful for clients with broken WebP support
-  ENABLE_PNG?: string;   // disable to force JPEG even when only PNG is acceptable; loses transparency
+  // Comma-separated list of formats to drop. Empty / unset = every format
+  // enabled. Recognized values: jpeg, png, webp, avif, gif, svg.
+  //
+  // For *transformed* outputs (jpeg/png/webp/avif), disabling means the
+  // negotiator falls back to the next-best format the browser accepts.
+  // If every format the browser accepts is disabled, the Worker returns 415.
+  //
+  // For *passthrough* inputs (gif / svg), disabling means the Worker rejects
+  // those source types with 415 instead of returning the bytes unchanged.
+  //
+  // Examples:
+  //   DISABLED_FORMATS="avif"        — drop AVIF (typical; AVIF encode is
+  //                                    ~3-4× more CPU than WebP)
+  //   DISABLED_FORMATS="svg,gif"     — refuse SVG and animated GIF inputs
+  //   DISABLED_FORMATS="avif,webp"   — JPEG-only output
+  DISABLED_FORMATS?: string;
   IMAGES?: CloudflareImagesBinding; // optional CF Images binding
   ASSETS?: Fetcher; // bundled static assets (demo HTML + sample images)
 }
 
 interface FormatsEnabled {
-  avif: boolean;
-  webp: boolean;
+  jpeg: boolean;
   png: boolean;
+  webp: boolean;
+  avif: boolean;
+  gif: boolean;
+  svg: boolean;
 }
 
 function readFormatsEnabled(env: Env): FormatsEnabled {
-  const isOff = (v: string | undefined) => v === "false" || v === "0";
+  const disabled = new Set(
+    (env.DISABLED_FORMATS ?? "")
+      .toLowerCase()
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean),
+  );
   return {
-    avif: !isOff(env.ENABLE_AVIF),
-    webp: !isOff(env.ENABLE_WEBP),
-    png: !isOff(env.ENABLE_PNG),
+    jpeg: !disabled.has("jpeg"),
+    png: !disabled.has("png"),
+    webp: !disabled.has("webp"),
+    avif: !disabled.has("avif"),
+    gif: !disabled.has("gif"),
+    svg: !disabled.has("svg"),
   };
 }
 
@@ -150,6 +171,12 @@ export default {
     const accept = request.headers.get("Accept") ?? "";
     const enabled = readFormatsEnabled(env);
     const outputFormat = negotiateFormat(accept, backend, !!env.IMAGES, enabled);
+    if (outputFormat === null) {
+      return new Response(
+        "No supported output format — every format the client accepts is in DISABLED_FORMATS",
+        { status: 415 },
+      );
+    }
 
     // Strong validator: deterministic from the cache key, so a client that
     // already has bytes for this exact (image, w, q, format) can short-circuit
@@ -208,7 +235,21 @@ export default {
     // Content-Type and the standard security headers (script-src 'none' +
     // sandbox neutralize any embedded SVG scripts the same way Next.js's
     // own loader does).
-    if (contentType === "image/svg+xml" || isAnimated(sourceBytes, contentType)) {
+    const isSvg = contentType === "image/svg+xml";
+    const animated = isAnimated(sourceBytes, contentType);
+    const animatedKind = animated ? (contentType === "image/gif" ? "gif" : "webp") : null;
+
+    if (isSvg && !enabled.svg) {
+      return new Response("SVG passthrough disabled", { status: 415 });
+    }
+    if (animatedKind === "gif" && !enabled.gif) {
+      return new Response("Animated GIF passthrough disabled", { status: 415 });
+    }
+    if (animatedKind === "webp" && !enabled.webp) {
+      return new Response("Animated WebP passthrough disabled", { status: 415 });
+    }
+
+    if (isSvg || animated) {
       const response = new Response(sourceBytes, {
         headers: {
           "Content-Type": contentType,
@@ -321,34 +362,32 @@ function resolveBackend(env: Env): ImageBackend {
 }
 
 /**
- * Negotiate output format based on Accept header, backend, and CF Images availability.
+ * Negotiate output format based on Accept header, backend, and the operator's
+ * DISABLED_FORMATS list. Returns null if every format the browser accepts is
+ * disabled (caller should respond 415).
  *
- * Priority: AVIF > WebP > JPEG (matching Next.js behavior).
- * AVIF is only offered when CF Images is available to encode it.
- * WebP maps to JPEG until libwebp is integrated into the WASM engine.
+ * Preference order: AVIF > WebP > PNG > JPEG. Each candidate is skipped if the
+ * operator disabled it; the negotiator falls back to the next-best.
  */
 function negotiateFormat(
   accept: string,
   backend: ImageBackend,
   hasCfImages: boolean,
   enabled: FormatsEnabled,
-): OutputFormat {
+): OutputFormat | null {
   if (backend === "cf-images" && hasCfImages) {
-    // Explicit cf-images backend: route through CF Images, still honoring
-    // the per-format kill switches so users can keep CF Images on for
-    // some formats while disabling others.
     if (enabled.avif && accept.includes("image/avif")) return "avif";
     if (enabled.webp && accept.includes("image/webp")) return "webp";
     if (enabled.png && accept.includes("image/png") && !accept.includes("image/jpeg")) return "png";
-    return "jpeg";
+    if (enabled.jpeg) return "jpeg";
+    return null;
   }
 
-  // auto / wasm: AVIF > WebP > PNG > JPEG, dropping any format the user
-  // disabled via ENABLE_* env var.
   if (backend === "auto" && enabled.avif && accept.includes("image/avif")) return "avif";
   if (enabled.webp && accept.includes("image/webp")) return "webp";
   if (enabled.png && accept.includes("image/png") && !accept.includes("image/jpeg")) return "png";
-  return "jpeg";
+  if (enabled.jpeg) return "jpeg";
+  return null;
 }
 
 // ── Parameter validation (matches Next.js behavior) ──

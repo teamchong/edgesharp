@@ -14,27 +14,30 @@ hero:
       variant: minimal
 ---
 
-## The problem
+## Who this is for
 
-Image optimization is one of the most common per-transform line items on a serverless bill. If you're already on Cloudflare or moving to it, you want the same drop-in `<Image>` experience as Next.js's default loader — but billed against Workers CPU + R2 storage instead of a per-transform fee.
+You shipped a Next.js project on Vercel, the demo went well, and now you're staring at the [Vercel image-optimization line item](https://vercel.com/docs/image-optimization/limits-and-pricing) for the first time. Maybe it's $20, maybe more — small in absolute terms, but it's a commitment you didn't plan for while you were still figuring out whether the project has legs.
 
-edgesharp is a Cloudflare-native `/_next/image` replacement that runs on Workers. It compiles JPEG/PNG/WebP transforms to Zig WASM, ships a custom-built libavif for native AVIF, caches results in R2 (free egress), and ships as a single Worker bundle. **Free plan friendly: 838 KB fits the 1 MB compressed limit.** AVIF is on by default; set `ENABLE_AVIF = "false"` in the Cloudflare dashboard if you want AVIF requests to fall back to WebP without redeploying.
+edgesharp is for that moment. It's a drop-in `/_next/image` replacement that runs on Cloudflare Workers, with the same `<Image>` API you already use. One line in `next.config.mjs` and the loader switches from Vercel's optimizer to your Worker. JPEG/PNG/WebP transforms are compiled to Zig WASM; native AVIF ships via a custom-built libavif; results cache in R2 ([egress is free](https://developers.cloudflare.com/r2/pricing/)). **Free plan friendly: 838 KB fits the 1 MB compressed limit.**
+
+When the project actually takes off and you want professional-grade image transforms with a managed SLA, [Cloudflare Images](https://developers.cloudflare.com/images/) is one config flip away — set `IMAGE_BACKEND: "cf-images"` and the same Worker routes through CF Images instead of WASM. edgesharp doesn't lock you in; it just gives you a runway while you're still on a hobby budget.
+
+A single `DISABLED_FORMATS` env var (comma-separated; recognized values: `jpeg`, `png`, `webp`, `avif`, `gif`, `svg`) drops any format at runtime — set it in the Cloudflare dashboard, no redeploy needed. For transformed outputs (jpeg/png/webp/avif), the negotiator skips disabled formats and picks the next-best one the browser accepts; for passthrough inputs (animated gif / svg), the Worker rejects with 415. AVIF is the most expensive to encode, so it's the headline knob: `DISABLED_FORMATS="avif"` is the typical setting when CPU costs creep.
 
 ## Why Cloudflare-native
 
 [R2 egress to the internet is free](https://developers.cloudflare.com/r2/pricing/). That single line is the structural reason an image cache built on Workers + R2 doesn't pay the cache-write and bandwidth fees that pile up elsewhere. You pay only [$0.015/GB/month](https://developers.cloudflare.com/r2/pricing/) for stored output.
 
-## Pricing comparison
+## Where edgesharp fits
 
-All numbers from official pricing pages. Links to sources in each row.
+edgesharp isn't trying to compete with [Cloudflare Images](https://developers.cloudflare.com/images/). They solve different parts of the lifecycle:
 
-| Solution | Cost per 1,000 transforms | Setup |
+| Stage | What you want | Tool |
 |---|---|---|
-| [Vercel (new pricing)](https://vercel.com/docs/image-optimization/limits-and-pricing) | $0.05 + cache read/write fees | Zero config |
-| [Cloudflare Images](https://developers.cloudflare.com/images/pricing/) | $0.50 per 1K unique transforms | Bind `IMAGES` |
-| edgesharp | Workers CPU + R2 storage (free egress) — native AVIF included, no per-transform fees | One config change |
+| You just shipped a side project, traffic is small, you want off the [Vercel image bill](https://vercel.com/docs/image-optimization/limits-and-pricing) without committing to anything | A drop-in `<Image>` loader that runs on Workers + R2 you already pay for | **edgesharp** |
+| The project has product-market fit, you want managed quality, polish, an SLA, and don't want to operate WASM yourself | A first-class image-optimization service with focal-point cropping, signed URLs, format detection | **[Cloudflare Images](https://developers.cloudflare.com/images/)** — flip `IMAGE_BACKEND: "cf-images"` |
 
-5,000 free transforms/month are included with Cloudflare Images. edgesharp has no per-transform fees at any scale — the bundle includes a custom size-first build of libavif so AVIF requests don't need the Cloudflare Images binding.
+The same `wrangler.json` works for both modes. You can start on edgesharp's WASM path and graduate to CF Images without changing your Next.js config or rewriting URLs. 5,000 free transforms/month are included with Cloudflare Images, so the upgrade is also gentle from a cost perspective.
 
 ## How it works
 

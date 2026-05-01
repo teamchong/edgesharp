@@ -15,8 +15,9 @@
  * is what makes wrangler precompile the libavif WASM at deploy time; the
  * encoder module itself is only instantiated lazily on the first AVIF
  * request, so Workers that never serve AVIF never pay the libavif startup
- * cost. The `ENABLE_AVIF` environment variable (settable in the Cloudflare
- * dashboard) acts as a runtime kill switch for AVIF without redeploying.
+ * cost. Adding `avif` to the `DISABLED_FORMATS` env var (settable in the
+ * Cloudflare dashboard) drops AVIF from negotiation at runtime without
+ * redeploying.
  */
 // @ts-expect-error — wasm import resolved by wrangler's CompiledWasm rule
 import avifEncWasm from "../wasm/vendor/avif_enc/avif_enc.wasm";

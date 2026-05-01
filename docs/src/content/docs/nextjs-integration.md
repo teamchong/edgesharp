@@ -70,7 +70,7 @@ Worker URL instead of `/_next/image` on the same Next.js server.
 - Image transforms run on Cloudflare Workers (Zig WASM SIMD) instead of
   Vercel's image optimizer
 - No per-transform fees — pay only Workers CPU + R2 storage. R2 egress is free.
-- AVIF served natively via vendored libavif (toggle with `ENABLE_AVIF` in the Cloudflare dashboard)
+- AVIF served natively via vendored libavif. The `DISABLED_FORMATS` env var in the Cloudflare dashboard takes a comma-separated list (recognized: `jpeg`, `png`, `webp`, `avif`, `gif`, `svg`) to drop formats from negotiation at runtime.
 - EXIF orientation auto-rotated on JPEG decode (mobile portraits render upright
   with no client-side fix)
 - Cold cache miss: ~100 ms WASM transform; warm cache hit: ~5 ms. Native

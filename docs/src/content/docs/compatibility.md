@@ -24,7 +24,7 @@ docs, the column is marked **?** rather than guessed.
 | GIF (animated) | ✓ passthrough | ✓ passthrough | Source bytes returned unchanged. |
 | WebP (still) | ✓ | ✓ | |
 | WebP (animated) | ✓ passthrough | ✓ passthrough | Source bytes returned unchanged. |
-| AVIF | ✓ | ✓ | edgesharp uses a vendored libavif build; kill switch via `ENABLE_AVIF=false`. |
+| AVIF | ✓ | ✓ | edgesharp uses a vendored libavif build; kill switch via `DISABLED_FORMATS="avif"`. |
 | SVG | ✓ (sanitized) | ✓ (passthrough + CSP/sandbox) | Both serve SVG without re-encoding. Next.js sanitizes; edgesharp returns the source bytes with `Content-Security-Policy: script-src 'none'; sandbox;` which neutralizes embedded scripts in the browser. |
 | TIFF | ✓ | ✗ | Out of scope (web-image use case). |
 | HEIC / HEIF | ? | ✗ | Out of scope. |
@@ -84,7 +84,7 @@ equivalent first-class flags.
 | URL allowlist for upstream image hosts | `images.remotePatterns` | `ALLOWED_ORIGINS` | edgesharp accepts `"*"` as well — useful for demos, not for production. |
 | Caller allowlist (Referer / Origin) | ✗ | `ALLOWED_REFERERS` | Stops other sites hotlinking your Worker. |
 | Hard cap on `?q=` | ✗ | `MAX_QUALITY` | Cost protection against expensive `q=100` requests. |
-| Per-format kill switches | ✗ | `ENABLE_AVIF`, `ENABLE_WEBP`, `ENABLE_PNG` | Disable a format at runtime; falls back to next-best. JPEG always-on. |
+| Format kill switch | ✗ | `DISABLED_FORMATS` (CSV: `jpeg`, `png`, `webp`, `avif`, `gif`, `svg`) | Drop transformed outputs (negotiator picks next-best the browser accepts) or passthrough inputs (Worker returns 415). |
 | Backend pluggability | ✗ | `IMAGE_BACKEND` | Can route every transform through Cloudflare Images instead of WASM. |
 
 ## Costs
