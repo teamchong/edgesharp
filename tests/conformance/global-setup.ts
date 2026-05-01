@@ -66,6 +66,18 @@ export async function setup() {
 
   // Wait for wrangler dev
   await waitForPort(port);
+
+  // Warm up the DO + WASM so the first conformance test doesn't pay the
+  // entire cold-isolate boot + WASM compile + JPEG encoder warmup. CI
+  // runners have variable CPU; the first transform can take 30+ seconds
+  // on a slow shared runner. Two warmup hits cover both the WebP path
+  // (used by most tests via the default Accept header) and the JPEG path
+  // (used by the "Accept: */*" content-negotiation test).
+  for (const accept of ["image/webp,*/*", "image/jpeg,*/*"]) {
+    await fetch(`http://localhost:${port}/_next/image?url=/photo.jpg&w=640&q=75&warmup=${encodeURIComponent(accept)}`, {
+      headers: { Accept: accept },
+    }).catch(() => {});
+  }
 }
 
 export async function teardown() {
