@@ -71,17 +71,18 @@ export fn image_decode_resize(
     const dec_height = std.mem.readInt(u32, decoded[4..8], .little);
     const pixels = decoded + 8;
 
-    const dst_height: u32 = if (dst_width > 0)
-        @intCast(@as(u64, dec_height) * dst_width / dec_width)
-    else
-        dec_height;
-    const actual_dst_width = if (dst_width > 0) dst_width else dec_width;
+    // Clamp output to source width — never upscale. Upscaling produces blurry
+    // output AND eats memory: 3840×2880 RGBA is 44 MB, plus the encoder's
+    // working set, easily pushes the Workers 128 MB isolate cap. Standard
+    // image-CDN behavior.
+    const clamped_dst_width = if (dst_width == 0 or dst_width > dec_width) dec_width else dst_width;
+    const dst_height: u32 = @intCast(@as(u64, dec_height) * clamped_dst_width / dec_width);
 
-    if (actual_dst_width == dec_width and dst_height == dec_height) {
+    if (clamped_dst_width == dec_width and dst_height == dec_height) {
         return decoded;
     }
 
-    const resized = resize.lanczos3(pixels, dec_width, dec_height, actual_dst_width, dst_height);
+    const resized = resize.lanczos3(pixels, dec_width, dec_height, clamped_dst_width, dst_height);
     const dec_size = 8 + @as(usize, dec_width) * @as(usize, dec_height) * 4;
     memory.free(decoded, dec_size);
     return resized;
@@ -102,13 +103,10 @@ export fn image_transform(
     const dec_height = std.mem.readInt(u32, decoded[4..8], .little);
     const pixels = decoded + 8;
 
-    // Calculate destination height maintaining aspect ratio
-    const dst_height: u32 = if (dst_width > 0)
-        @intCast(@as(u64, dec_height) * dst_width / dec_width)
-    else
-        dec_height;
-
-    const actual_dst_width = if (dst_width > 0) dst_width else dec_width;
+    // Clamp output to source width — never upscale. Avoids blurry output and
+    // keeps the resize+encode working set inside Workers' 128 MB isolate cap.
+    const clamped_dst_width = if (dst_width == 0 or dst_width > dec_width) dec_width else dst_width;
+    const dst_height: u32 = @intCast(@as(u64, dec_height) * clamped_dst_width / dec_width);
 
     // Resize (skip if same dimensions)
     var final_pixels = pixels;
@@ -116,8 +114,8 @@ export fn image_transform(
     var final_h = dec_height;
     var resized_buf: ?[*]u8 = null;
 
-    if (actual_dst_width != dec_width or dst_height != dec_height) {
-        resized_buf = resize.lanczos3(pixels, dec_width, dec_height, actual_dst_width, dst_height);
+    if (clamped_dst_width != dec_width or dst_height != dec_height) {
+        resized_buf = resize.lanczos3(pixels, dec_width, dec_height, clamped_dst_width, dst_height);
         if (resized_buf) |buf| {
             final_w = std.mem.readInt(u32, buf[0..4], .little);
             final_h = std.mem.readInt(u32, buf[4..8], .little);
