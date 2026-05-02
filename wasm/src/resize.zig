@@ -99,48 +99,84 @@ fn freeFilter(f: Filter) void {
 }
 
 /// Resize RGBA pixels using separable Lanczos3.
-/// Input:  raw RGBA pixels at src_width × src_height
-/// Output: [4 bytes dst_w][4 bytes dst_h][dst_w*dst_h*4 bytes RGBA]
+///
+/// Takes ownership of `decoded`, an [8-byte header][src_w*src_h*4 bytes RGBA]
+/// buffer. This function frees `decoded` itself before allocating the output,
+/// so the caller MUST NOT free it. Returning ownership of the decoded buffer
+/// to the resizer lets us:
+///
+///   1. Premultiply alpha in-place inside the source buffer (no separate
+///      48 MB `premul` allocation).
+///   2. Free the source buffer immediately after the horizontal pass, before
+///      we allocate the output. Without this, peak memory for a
+///      4000×3000 → 3840×2880 resize would hold src + tmp + out = 138 MB,
+///      which exceeds the Workers 128 MB isolate budget. With it, peak is
+///      94 MB during horizontalPass and 90 MB during verticalPass.
+///
+/// Returns: pointer to [4 bytes dst_w][4 bytes dst_h][dst_w*dst_h*4 bytes RGBA].
+/// On any failure the function frees `decoded` and returns null.
 pub fn lanczos3(
-    pixels_ptr: [*]const u8,
+    decoded: []u8,
     src_w: u32,
     src_h: u32,
     dst_w: u32,
     dst_h: u32,
 ) ?[*]u8 {
-    if (src_w == 0 or src_h == 0 or dst_w == 0 or dst_h == 0) return null;
+    if (src_w == 0 or src_h == 0 or dst_w == 0 or dst_h == 0) {
+        mem.freeSlice(decoded);
+        return null;
+    }
 
-    const pixel_count = @as(usize, src_w) * @as(usize, src_h);
-    const src = pixels_ptr[0 .. pixel_count * 4];
+    // Premultiply alpha in-place in the decoded RGBA region. Same effect as
+    // the old separate-buffer premultiply (Sharp/libvips do this to avoid
+    // color fringing at transparent edges), without the duplicate allocation.
+    const pixels = decoded[8..];
+    premultiplyAlphaInPlace(pixels);
 
-    // Premultiply alpha before resizing (same as Sharp/libvips).
-    // Without this, transparent edges get color fringing because the
-    // Lanczos kernel blends unassociated RGB values from transparent pixels.
-    const premul = mem.allocSlice(pixel_count * 4) orelse return null;
-    defer mem.freeSlice(premul);
-    premultiplyAlpha(src, premul);
-
-    // Allocate intermediate buffer (horizontal pass result: dst_w × src_h)
+    // Allocate intermediate buffer (horizontal pass result: dst_w × src_h).
     const tmp_size = @as(usize, dst_w) * @as(usize, src_h) * 4;
-    const tmp = mem.allocSlice(tmp_size) orelse return null;
-    defer mem.freeSlice(tmp);
+    const tmp = mem.allocSlice(tmp_size) orelse {
+        mem.freeSlice(decoded);
+        return null;
+    };
 
-    // Allocate output buffer with header
+    const h_filter = buildFilter(src_w, dst_w) orelse {
+        mem.freeSlice(tmp);
+        mem.freeSlice(decoded);
+        return null;
+    };
+
+    horizontalPass(pixels, tmp, src_w, src_h, dst_w, h_filter);
+    freeFilter(h_filter);
+
+    // Source is no longer needed. Free it before allocating the output —
+    // this is the key optimization that keeps peak memory under the budget.
+    mem.freeSlice(decoded);
+
+    // Allocate output buffer with header.
     const dst_pixel_count = @as(usize, dst_w) * @as(usize, dst_h);
     const out_size = 8 + dst_pixel_count * 4;
-    const out = mem.allocSlice(out_size) orelse return null;
+    const out = mem.allocSlice(out_size) orelse {
+        mem.freeSlice(tmp);
+        return null;
+    };
 
     std.mem.writeInt(u32, out[0..4], dst_w, .little);
     std.mem.writeInt(u32, out[4..8], dst_h, .little);
 
-    // Build filter tables once per pass.
-    const h_filter = buildFilter(src_w, dst_w) orelse return null;
-    defer freeFilter(h_filter);
-    const v_filter = buildFilter(src_h, dst_h) orelse return null;
-    defer freeFilter(v_filter);
+    const v_filter = buildFilter(src_h, dst_h) orelse {
+        mem.freeSlice(out);
+        mem.freeSlice(tmp);
+        return null;
+    };
 
-    horizontalPass(premul, tmp, src_w, src_h, dst_w, h_filter);
     verticalPass(tmp, out[8..], dst_w, src_h, dst_h, v_filter);
+    freeFilter(v_filter);
+
+    // Free the intermediate before unpremultiplying — unpremultiply is
+    // in-place, so we don't need tmp any more and freeing it now keeps
+    // us at the lowest peak through this final step.
+    mem.freeSlice(tmp);
 
     unpremultiplyAlpha(out[8..][0 .. dst_pixel_count * 4]);
 
@@ -223,26 +259,26 @@ fn verticalPass(src: []const u8, dst: []u8, width: u32, src_h: u32, dst_h: u32, 
     }
 }
 
-/// Premultiply RGBA: R,G,B *= A/255, integer math, no rounding error.
+/// Premultiply RGBA in-place: R,G,B *= A/255, integer math, no rounding error.
 /// (R * A * 257 + 32768) >> 16 is exact for u8 values: equals round(R*A/255).
-fn premultiplyAlpha(src: []const u8, dst: []u8) void {
+/// Skips the write entirely for opaque pixels (a==255), since R,G,B are
+/// already correct.
+fn premultiplyAlphaInPlace(data: []u8) void {
     var i: usize = 0;
-    while (i + 3 < src.len) : (i += 4) {
-        const a: u32 = src[i + 3];
+    while (i + 3 < data.len) : (i += 4) {
+        const a: u32 = data[i + 3];
         if (a == 255) {
-            dst[i + 0] = src[i + 0];
-            dst[i + 1] = src[i + 1];
-            dst[i + 2] = src[i + 2];
+            // Opaque, no change.
         } else if (a == 0) {
-            dst[i + 0] = 0;
-            dst[i + 1] = 0;
-            dst[i + 2] = 0;
+            data[i + 0] = 0;
+            data[i + 1] = 0;
+            data[i + 2] = 0;
         } else {
-            dst[i + 0] = @intCast((@as(u32, src[i + 0]) * a * 257 + 32768) >> 16);
-            dst[i + 1] = @intCast((@as(u32, src[i + 1]) * a * 257 + 32768) >> 16);
-            dst[i + 2] = @intCast((@as(u32, src[i + 2]) * a * 257 + 32768) >> 16);
+            data[i + 0] = @intCast((@as(u32, data[i + 0]) * a * 257 + 32768) >> 16);
+            data[i + 1] = @intCast((@as(u32, data[i + 1]) * a * 257 + 32768) >> 16);
+            data[i + 2] = @intCast((@as(u32, data[i + 2]) * a * 257 + 32768) >> 16);
         }
-        dst[i + 3] = src[i + 3];
+        // Alpha unchanged.
     }
 }
 
