@@ -13,3 +13,14 @@
 *.avif binary
 *.gif binary
 *.ico binary
+
+# Don't count vendored third-party code in GitHub's language stats. The
+# libavif/libaom/libwebp C sources are 60%+ of the bytes in the repo but
+# none of it is code we wrote. Marking these as vendored makes the language
+# breakdown reflect the TypeScript + Zig that actually lives here.
+wasm/vendor/** linguist-vendored
+wasm/src/libwebp/** linguist-vendored
+wasm/src/miniz.c linguist-vendored
+wasm/src/miniz.h linguist-vendored
+wasm/src/libc/** linguist-vendored
+tools/build-avif/** linguist-vendored
