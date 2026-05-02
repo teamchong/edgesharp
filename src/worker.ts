@@ -106,13 +106,27 @@ const MAX_WIDTH = 3840;
 // is typical) while rejecting 50 MB+ DSLR exports that would crash decode.
 const MAX_SOURCE_BYTES = 25 * 1024 * 1024;
 
-// Fallback target width when the requested width can't be resized inside the
-// WASM heap budget. Lanczos3 holds the decoded source RGBA AND the resize
-// destination simultaneously — for a 4000×3000 source resizing to 3840×2880,
-// peak is ~92 MB which collides with libavif's working set. Retrying at
-// 2048 keeps peak under ~60 MB and almost always succeeds. Picked to match
-// Next.js's default deviceSizes (2048 is the second-largest emitted width).
-const SAFE_RESIZE_WIDTH = 2048;
+// Per-format hard cap on encoder input width. Each encoder has a different
+// memory profile, and at 3840×2880 (44 MB RGBA input) the heavier encoders
+// blow the 128 MB Workers isolate budget. Capping the width sent to the DO
+// (and to libavif in the worker) keeps the encode within budget. Browser
+// CSS scales the smaller output to fit the requested layout — very slight
+// quality loss on 4K screens, but the alternative is the page failing to
+// render.
+//
+//   JPEG:  block-DCT encode. Adds ~5 MB working memory. Fits anywhere.
+//   PNG:   allocates `height × (1 + width*4)` raw filtered buffer. ~44 MB
+//          extra at 3840×2880, total exceeds 128 MB.
+//   WebP:  libwebp method=1 holds prediction + transform buffers, ~50 MB
+//          working at 3840.
+//   AVIF:  libavif/libaom AV1 prediction is the worst case, ~100 MB working
+//          memory at 3840 (separate isolate from DO so RGBA gets re-instantiated).
+const FORMAT_WIDTH_CAP: Record<OutputFormat, number> = {
+  jpeg: 3840,
+  png: 2560,
+  webp: 2880,
+  avif: 2560,
+};
 
 // 67-byte 1×1 transparent PNG. Used as the fallback response when a transform
 // fails or a source is rejected pre-flight. Browsers render it as an empty
@@ -344,43 +358,27 @@ export default {
       // Native AVIF: WASM decodes + resizes to RGBA, jsquash encodes the
       // tile-based AV1 bitstream. No CF Images dependency, no per-transform fee.
       //
-      // Failure chain:
-      //   1) requested width
-      //   2) SAFE_RESIZE_WIDTH retry if the WASM heap couldn't hold the resize
-      //      destination (a 4000×3000 source at w=3840 peaks ~92 MB)
-      //   3) source passthrough (the original bytes) — page renders, slow load,
-      //      better than a blank tile.
-      // Each step wrapped in try/catch because the DO can throw (not just
-      // return 500) when a WASM allocation fails hard, and an uncaught throw
-      // bubbles up as a Cloudflare-level Internal Error — which the user sees
-      // as a broken page with no diagnostic.
+      // libavif's working memory exceeds the 128 MB worker isolate budget
+      // for RGBA inputs above ~25 MB (i.e., > 2560×~2560). We cap the width
+      // sent to the DO at FORMAT_WIDTH_CAP.avif so the encoder never sees
+      // an input it can't handle. Browser CSS scales the smaller AVIF up
+      // to fit a 4K layout — slight quality loss, page still renders fast.
+      const effectiveWidth = Math.min(width, FORMAT_WIDTH_CAP.avif);
       const slot = hashSlot(imageUrl, 16);
       const doId = env.IMAGE_DO.idFromName(`img-slot-${slot}`);
       const doHandle = env.IMAGE_DO.get(doId);
 
-      const tryDoRgba = async (w: number): Promise<Response | null> => {
-        try {
-          // Pass a fresh Uint8Array view per call. The Workers runtime can
-          // consume a body buffer on first send; retrying with the same
-          // reference would hand the DO an empty body and the retry would
-          // 400 instead of doing the smaller-width transform.
-          return await doHandle.fetch("https://edgesharp.internal/transform", {
-            method: "POST",
-            body: new Uint8Array(sourceBytes),
-            headers: { "X-Target-Width": String(w), "X-Output-Mode": "rgba" },
-          });
-        } catch (err) {
-          console.error(`edgesharp avif do-throw url=${JSON.stringify(imageUrl)} w=${w} err=${err instanceof Error ? err.message : String(err)}`);
-          return null;
-        }
-      };
-
-      let rawResponse = await tryDoRgba(width);
-      if ((!rawResponse || !rawResponse.ok) && width > SAFE_RESIZE_WIDTH) {
-        const reason = rawResponse ? `${rawResponse.status}` : "throw";
-        console.error(`edgesharp avif retry url=${JSON.stringify(imageUrl)} from=${width} to=${SAFE_RESIZE_WIDTH} reason=${reason}`);
-        rawResponse = await tryDoRgba(SAFE_RESIZE_WIDTH);
+      let rawResponse: Response | null = null;
+      try {
+        rawResponse = await doHandle.fetch("https://edgesharp.internal/transform", {
+          method: "POST",
+          body: new Uint8Array(sourceBytes),
+          headers: { "X-Target-Width": String(effectiveWidth), "X-Output-Mode": "rgba" },
+        });
+      } catch (err) {
+        console.error(`edgesharp avif do-throw url=${JSON.stringify(imageUrl)} w=${effectiveWidth} err=${err instanceof Error ? err.message : String(err)}`);
       }
+
       if (!rawResponse || !rawResponse.ok) {
         const reason = rawResponse ? `${rawResponse.status}` : "throw";
         return passthroughOnFailure(sourceBytes, contentType, etag, ctx, cache, cacheRequest, `avif-decode:${reason}`, imageUrl);
@@ -393,6 +391,9 @@ export default {
 
       // libavif is statically imported but lazily instantiated, the WASM
       // module sits idle in memory until the first AVIF request hits this branch.
+      // try/catch is best-effort: if the encode is heavy enough to OOM the
+      // isolate, CF kills the worker before this runs. The width cap above
+      // is the actual defense — try/catch only covers slower failures.
       try {
         const avifEncoder = createAvifEncoder(env);
         const avifBytes = await avifEncoder(rgba, rgbaWidth, rgbaHeight, quality);
@@ -403,34 +404,29 @@ export default {
         return passthroughOnFailure(sourceBytes, contentType, etag, ctx, cache, cacheRequest, `avif-encode:throw`, imageUrl);
       }
     } else {
-      // Default: free transform via Durable Object → WASM JPEG / PNG / WebP
+      // Default: free transform via Durable Object → WASM JPEG / PNG / WebP.
+      // Per-format width cap keeps the encoder's working memory inside the
+      // DO's 128 MB isolate. JPEG fits anywhere; PNG and WebP have heavier
+      // working sets and cap at smaller widths.
       const wasmFormat = FORMAT_WASM_CODE[outputFormat] ?? 0;
+      const effectiveWidth = Math.min(width, FORMAT_WIDTH_CAP[outputFormat]);
       const slot = hashSlot(imageUrl, 16);
       const doId = env.IMAGE_DO.idFromName(`img-slot-${slot}`);
       const doHandle = env.IMAGE_DO.get(doId);
 
-      const tryDoEncoded = async (w: number): Promise<Response | null> => {
-        try {
-          return await doHandle.fetch("https://edgesharp.internal/transform", {
-            method: "POST",
-            body: new Uint8Array(sourceBytes),
-            headers: {
-              "X-Target-Width": String(w),
-              "X-Output-Format": String(wasmFormat),
-              "X-Quality": String(quality),
-            },
-          });
-        } catch (err) {
-          console.error(`edgesharp wasm do-throw url=${JSON.stringify(imageUrl)} format=${outputFormat} w=${w} err=${err instanceof Error ? err.message : String(err)}`);
-          return null;
-        }
-      };
-
-      let transformResponse = await tryDoEncoded(width);
-      if ((!transformResponse || !transformResponse.ok) && width > SAFE_RESIZE_WIDTH) {
-        const reason = transformResponse ? `${transformResponse.status}` : "throw";
-        console.error(`edgesharp wasm retry url=${JSON.stringify(imageUrl)} format=${outputFormat} from=${width} to=${SAFE_RESIZE_WIDTH} reason=${reason}`);
-        transformResponse = await tryDoEncoded(SAFE_RESIZE_WIDTH);
+      let transformResponse: Response | null = null;
+      try {
+        transformResponse = await doHandle.fetch("https://edgesharp.internal/transform", {
+          method: "POST",
+          body: new Uint8Array(sourceBytes),
+          headers: {
+            "X-Target-Width": String(effectiveWidth),
+            "X-Output-Format": String(wasmFormat),
+            "X-Quality": String(quality),
+          },
+        });
+      } catch (err) {
+        console.error(`edgesharp wasm do-throw url=${JSON.stringify(imageUrl)} format=${outputFormat} w=${effectiveWidth} err=${err instanceof Error ? err.message : String(err)}`);
       }
 
       if (!transformResponse || !transformResponse.ok) {
