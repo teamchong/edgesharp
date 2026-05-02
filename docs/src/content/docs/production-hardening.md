@@ -86,8 +86,7 @@ turn on for any public Worker:
   on `/_next/image` — e.g., 100 requests/min per IP. The CPU cost of a single
   cold transform is small; the cost of a thousand of them in a minute isn't.
 - **[Bot Fight Mode](https://developers.cloudflare.com/bots/get-started/bot-fight-mode/)**
-  — included on the Free plan. Catches the obvious abuse patterns without
-  per-rule configuration.
+  — Catches the obvious abuse patterns without per-rule configuration.
 - **[R2 lifecycle rule](https://developers.cloudflare.com/r2/buckets/object-lifecycles/)**
   — bound your L2 cache size. 30-day expiration is reasonable for a CDN cache:
 
@@ -125,6 +124,6 @@ when an AI crawler discovered it."
 - **Compromised allowed origins** — if `cdn.yoursite.com` is XSS'd or hijacked,
   the Worker will fetch whatever's there. Image content-type validation is
   enforced (no SVG, no executables) but compromised images can still cost CPU.
-- **Workers Free plan ceiling** — 100k requests/day is shared across all
-  Workers on the account. A surge can exceed it; the spend cap alert is what
-  tells you it's happening.
+- **Surge billing on Paid** — beyond the 10M included requests/month, $0.30
+  per million keeps charging. The spend cap alert above is what tells you a
+  bad day is happening.

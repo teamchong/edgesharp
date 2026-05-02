@@ -22,12 +22,13 @@ be a path the build process can resolve and bundle separately. You can't
 
 ## One bundle
 
-| Entry point | Raw size | gzip size | Plan | Formats |
-|---|---|---|---|---|
-| `src/worker.ts` | ~1.73 MB | **~838 KB** | Free | JPEG, PNG, WebP, native AVIF |
+| Entry point | Raw size | gzip size | Formats |
+|---|---|---|---|
+| `src/worker.ts` | ~1.73 MB | **~838 KB** | JPEG, PNG, WebP, native AVIF |
 
-Free plan friendly: 838 KB fits the 1 MB compressed limit. The
-`DISABLED_FORMATS` env var in the Cloudflare dashboard takes a
+~838 KB gzip. Needs Workers Paid ($5/month per Cloudflare account); Workers
+Free is not supported. The `DISABLED_FORMATS` env var in the Cloudflare
+dashboard takes a
 comma-separated list of formats to drop (recognized: `jpeg`, `png`, `webp`,
 `avif`, `gif`, `svg`). For transformed outputs, the negotiator skips
 disabled formats and picks the next-best one the browser accepts; for
@@ -62,7 +63,7 @@ Open <http://localhost:8787>. The page, the source images, and the
 ## Deploy
 
 ```bash
-# Single bundle — Free plan friendly (~838 KB gzip, libavif included)
+# Single bundle — ~838 KB gzip, libavif included
 pnpm run deploy
 ```
 

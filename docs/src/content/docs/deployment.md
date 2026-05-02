@@ -15,12 +15,14 @@ Object are created automatically on first deploy.
 
 ## The single bundle
 
-| Worker entry | Worker bundle (gzip) | Plan | Formats |
-|---|---|---|---|
-| `src/worker.ts` | ~838 KB | Free | JPEG, PNG, WebP, native AVIF |
+| Worker entry | Worker bundle (gzip) | Formats |
+|---|---|---|
+| `src/worker.ts` | ~838 KB | JPEG, PNG, WebP, native AVIF |
 
-**Free plan friendly: 838 KB fits the 1 MB compressed limit.** AVIF is on by
-default. The cold-boot cost over the old 90 KB JPEG/PNG/WebP-only bundle is
+~838 KB gzip. Needs Workers Paid ($5/month per Cloudflare account); Workers
+Free is not supported (10 ms CPU/request, no Durable Objects). AVIF is on
+by default. The cold-boot cost over the old 90 KB JPEG/PNG/WebP-only bundle
+is
 small (~15–40 ms): wrangler precompiles the libavif WASM at deploy time, and
 the encoder is only instantiated on the first AVIF request — Workers that
 never serve AVIF never pay the libavif startup cost.

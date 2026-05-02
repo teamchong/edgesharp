@@ -23,41 +23,28 @@ are outside the envelope.
 | Limit | Source | Where it bites |
 |---|---|---|
 | Workers isolate memory | [128 MB](https://developers.cloudflare.com/workers/platform/limits/) | RGBA decode buffer = `width × height × 4`. A 5500×5500 image → 121 MB → out of memory. **Practical ceiling: source dimensions ~4000×4000.** |
-| Worker request body | [100 MB on Paid, 25 MB on Free](https://developers.cloudflare.com/workers/platform/limits/) | Source images larger than this get rejected before edgesharp can decode them. |
-| Worker CPU time per request | [10 ms (Free Bundled), 50 ms (Paid Bundled), 30 s (Paid Unbound)](https://developers.cloudflare.com/workers/platform/limits/) | A 4K JPEG → AVIF transform is ~1–2 s CPU. **Production transforms need Workers Paid + Unbound.** Free plan is fine for the cached hot path (~5 ms) but cold transforms exceed the 10 ms budget. |
+| Worker request body | [100 MB on Paid](https://developers.cloudflare.com/workers/platform/limits/) | Source images larger than this get rejected before edgesharp can decode them. |
+| Worker CPU time per request | [30 s on the Standard usage model (Paid default)](https://developers.cloudflare.com/workers/platform/limits/) | A 4K JPEG → AVIF transform is ~1–2 s CPU. Standard is the default for new Paid Workers, so cold transforms fit. |
 | `MAX_WIDTH` constant | 3840 (Next.js default) | Output width caps here regardless of source. Edit `MAX_WIDTH` in `src/worker.ts` if you need larger outputs. |
 | `MAX_URL_LENGTH` | 3072 chars | Source URL parameter cap. Long signed-URL inputs may need bumping. |
 
-## "Free plan friendly" — what that means
+## Workers Paid is required
 
-Two separate things share the phrase:
-
-- **Bundle size**: ~838 KB gzip fits Cloudflare's 1 MB compressed Worker
-  bundle limit. *True for both Free and Paid plans.*
-- **Runtime CPU**: production-scale image transforms exceed the Free plan's
-  10 ms CPU-per-request budget on cold cache misses. *Production deploys want
-  Workers Paid ($5/month base) with Unbound mode.*
-
-The bundle claim is the deploy-button promise — anyone can push the code to
-their Free-plan Cloudflare account without bumping into the upload limit.
-Whether a Free plan is enough at runtime depends on traffic shape:
-
-- **Free is plenty for**: a personal site whose images get cached the first
-  time anyone hits each variant; the demo bundled in this repo; a project
-  during local dev.
-- **Free runs out when**: you have many unique image variants, AI crawlers
-  probe new `(url, width)` combinations, or you do many cold transforms per
-  day. At that point flip to Workers Paid.
+edgesharp needs [Workers
+Paid](https://developers.cloudflare.com/workers/platform/pricing/) ($5/month
+per Cloudflare account). Workers Free is not supported: the 10 ms CPU/request
+cap is too tight for cold transforms (a 4K JPEG → AVIF is ~1–2 seconds CPU),
+and Durable Objects — required for the warm WASM pool — are Paid-only.
 
 ## Practical sweet spot
 
 | | Comfortable | Stretches | Fails |
 |---|---|---|---|
-| Source file size | < 10 MB | 10–25 MB | > 25 MB on Free; > 100 MB on Paid |
+| Source file size | < 10 MB | 10–50 MB | > 100 MB (Workers Paid request body cap) |
 | Source dimensions | < 4000×4000 | 4000–5000 px on a side | > 5500 px (memory) |
 | Output width | up to 3840 | n/a (capped) | n/a |
 | Output format | any of jpeg/png/webp/avif | n/a | n/a |
-| Cold transforms / sec | ~10 (Paid Bundled) | ~50 (Paid Unbound) | unbounded with concurrent isolates, but bills accumulate |
+| Cold transforms / sec | ~10 | ~50 (Standard usage model) | unbounded with concurrent isolates, but bills accumulate |
 
 ## What to do when you hit a limit
 
@@ -68,9 +55,11 @@ Whether a Free plan is enough at runtime depends on traffic shape:
   [Cloudflare Images](https://developers.cloudflare.com/images/) for the
   initial downsize. CF Images has higher resource limits as a managed
   service.
-- **CPU exceeded** — make sure you're on Workers Paid + Unbound. Check
-  [`compatibility-date`](https://developers.cloudflare.com/workers/configuration/compatibility-dates/)
-  is recent enough that Unbound's 30 s CPU budget applies.
+- **CPU exceeded** — Standard usage model (30 s CPU/request) is the default
+  for new Paid Workers, so a fresh deploy from this repo is already in the
+  right place. If you cloned the wrangler config from a much older Worker
+  that was on Bundled (50 ms), the simplest fix is to redeploy as a new
+  Worker.
 - **Memory exceeded** — almost always means the source is bigger than
   ~4000×4000. Either downsize at origin or set `IMAGE_BACKEND: cf-images`
   for that traffic and let Cloudflare Images handle it.

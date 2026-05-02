@@ -6,7 +6,9 @@ description: Set up edgesharp in 5 minutes.
 ## Prerequisites
 
 - A Next.js application (any hosting, or use the bundled demo)
-- A Cloudflare account (Free plan works)
+- A Cloudflare account on [Workers
+  Paid](https://developers.cloudflare.com/workers/platform/pricing/)
+  ($5/month per account; Workers Free is not supported)
 - Node.js 22+
 - [wrangler](https://developers.cloudflare.com/workers/wrangler/) CLI
 - pnpm (Corepack ships it; otherwise `npm install -g pnpm`)
@@ -65,7 +67,7 @@ curl 'http://localhost:8787/_next/image?url=/demo/photo.jpg&w=640&q=75' \
 
 ```bash
 # ~838 KB gzip — JPEG/PNG/WebP via Zig WASM, native AVIF via vendored libavif.
-# Free plan friendly: 838 KB fits the 1 MB compressed limit.
+# Needs Workers Paid ($5/month per Cloudflare account).
 pnpm run deploy
 ```
 

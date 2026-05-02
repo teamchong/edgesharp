@@ -2,8 +2,8 @@
 
 The `wasm/vendor/avif_enc/` WASM is a size-first rebuild of libavif + libaom
 that ships ~60% smaller raw (32% smaller gzipped) than `@jsquash/avif`'s
-upstream binary. This is what lets the single Worker bundle (Zig WASM +
-libavif + Worker JS) fit Cloudflare Workers' Free plan compressed limit.
+upstream binary. This is what keeps the single Worker bundle (Zig WASM +
+libavif + Worker JS) compact at ~838 KB gzip.
 
 ## What it costs
 
@@ -85,7 +85,7 @@ which would defeat the point of using AVIF over WebP).
 | Δ | –56% | –34% |
 
 Worker bundle (single-bundle deploy with libavif always included) lands at
-**~832 KB gzip** — under the Workers Free plan's 1 MB compressed limit.
+**~832 KB gzip**.
 
 ## Re-vendoring
 

@@ -4,7 +4,7 @@
  * Uses a custom-built libavif/libaom WASM (vendored at `wasm/vendor/avif_enc/`)
  * compiled with size-first emcc flags and 8-bit-only AV1. ~1.5 MB raw / ~743 KB
  * gzip versus jsquash's stock 3.4 MB / 1.1 MB build, which is what keeps the
- * single Worker bundle inside the Workers Free plan compressed limit.
+ * single Worker bundle compact at ~838 KB gzip.
  *
  * Cloudflare Workers disallow `WebAssembly.compile(bytes)` at runtime, so the
  * WASM must be a static `import` that wrangler compiles at deploy time. The

@@ -24,7 +24,7 @@ hero:
 
 You shipped a Next.js project on Vercel, the demo went well, and now you're staring at the [Vercel image-optimization line item](https://vercel.com/docs/image-optimization/limits-and-pricing) for the first time. Maybe it's $20, maybe more — small in absolute terms, but it's a commitment you didn't plan for while you were still figuring out whether the project has legs.
 
-edgesharp is for that moment. It's a drop-in `/_next/image` replacement that runs on Cloudflare Workers, with the same `<Image>` API you already use. One line in `next.config.mjs` and the loader switches from Vercel's optimizer to your Worker. JPEG/PNG/WebP transforms are compiled to Zig WASM; native AVIF ships via a custom-built libavif; results cache in R2 ([egress is free](https://developers.cloudflare.com/r2/pricing/)). **Free plan friendly: 838 KB fits the 1 MB compressed limit.**
+edgesharp is for that moment. It's a drop-in `/_next/image` replacement that runs on Cloudflare Workers, with the same `<Image>` API you already use. One line in `next.config.mjs` and the loader switches from Vercel's optimizer to your Worker. JPEG/PNG/WebP transforms are compiled to Zig WASM; native AVIF ships via a custom-built libavif; results cache in R2 ([egress is free](https://developers.cloudflare.com/r2/pricing/)). Needs Workers Paid ($5/month per Cloudflare account).
 
 When the project actually takes off and you want professional-grade image transforms with a managed SLA, [Cloudflare Images](https://developers.cloudflare.com/images/) is one config flip away — set `IMAGE_BACKEND: "cf-images"` and the same Worker routes through CF Images instead of WASM. edgesharp doesn't lock you in; it just gives you a runway while you're still on a hobby budget.
 

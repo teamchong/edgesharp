@@ -15,12 +15,14 @@ SIMD for JPEG/PNG/WebP and a vendored libavif for native AVIF.
 - 3-tier cache: Cache API → R2 → WASM transform. R2 egress is free, so the
   hot path is bandwidth-free.
 - One Worker, one bundle. `src/worker.ts` always ships JPEG / PNG / WebP plus
-  native AVIF via vendored libavif. **~838 KB gzip — Free plan friendly: it
-  fits the 1 MB compressed limit.** A single `DISABLED_FORMATS` env var (a
-  comma-separated list — recognized values: `jpeg`, `png`, `webp`, `avif`,
-  `gif`, `svg`) lets you drop any output format at runtime — flip it in the
-  Cloudflare dashboard, no redeploy. `DISABLED_FORMATS="avif"` is the typical
-  setting since AVIF encode is the most CPU-expensive.
+  native AVIF via vendored libavif. ~838 KB gzip. Needs [Workers
+  Paid](https://developers.cloudflare.com/workers/platform/pricing/) ($5/month
+  per Cloudflare account); Workers Free is not supported (10 ms CPU/request,
+  no Durable Objects). A single `DISABLED_FORMATS` env var (a comma-separated
+  list — recognized values: `jpeg`, `png`, `webp`, `avif`, `gif`, `svg`) lets
+  you drop any output format at runtime — flip it in the Cloudflare dashboard,
+  no redeploy. `DISABLED_FORMATS="avif"` is the typical setting since AVIF
+  encode is the most CPU-expensive.
 
 ## Install
 
@@ -31,7 +33,7 @@ pnpm add edgesharp
 ```
 
 ```js
-// next.config.mjs — the only file you change.
+// next.config.mjs
 export default {
   images: {
     loader: "custom",
@@ -40,8 +42,25 @@ export default {
 };
 ```
 
+Then point the loader at your deployed Worker URL via env var:
+
+```bash
+# .env.local (or your hosting platform's env config)
+NEXT_PUBLIC_IMAGEMODE_URL=https://your-worker.workers.dev
+```
+
 `<Image>` components stay exactly as written — `srcSet`, `sizes`, blur
 previews, priority, fill mode all unchanged.
+
+Prefer not to use an env var? Make a tiny custom loader file:
+
+```js
+// app/edgesharp-loader.js
+import { createLoader } from "edgesharp/loader";
+export default createLoader({ url: "https://your-worker.workers.dev" });
+```
+
+…and point `loaderFile` at that file instead.
 
 ## Deploy your own
 
@@ -83,11 +102,13 @@ with the repo so deploy-button users don't need Zig.
 
 ## Costs
 
-- **Cloudflare Workers** — [free plan covers 100k requests/day](https://developers.cloudflare.com/workers/platform/pricing/);
-  paid plan is $5/month + $0.30 per million requests after 10M.
+- **Cloudflare Workers Paid** —
+  [$5/month per Cloudflare account](https://developers.cloudflare.com/workers/platform/pricing/),
+  10M requests/month included, $0.30 per million after. Workers Free is not
+  supported.
 - **R2 storage** — [$0.015 / GB-month](https://developers.cloudflare.com/r2/pricing/);
   egress is free.
-- **No per-transform fees.** Compare to [Vercel image optimization
+- No per-transform fees. Compare to [Vercel image optimization
   pricing](https://vercel.com/docs/image-optimization/limits-and-pricing).
 
 ## Limitations

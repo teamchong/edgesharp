@@ -24,13 +24,13 @@ The recommended mode. Sends JPEG/PNG/WebP through Zig WASM and serves AVIF nativ
 
 ## One bundle, libavif always included
 
-The custom-built libavif encoder is ~1.55 MB compiled (down from 3.4 MB upstream — see below). Bundled into the single `src/worker.ts` entry, the whole Worker still ships at **~838 KB gzip**, so it's **Free plan friendly: 838 KB fits the 1 MB compressed limit.**
+The custom-built libavif encoder is ~1.55 MB compiled (down from 3.4 MB upstream — see below). Bundled into the single `src/worker.ts` entry, the whole Worker still ships at ~838 KB gzip. Needs Workers Paid ($5/month per Cloudflare account); Workers Free is not supported.
 
 **Bundle size** (after `wrangler deploy --dry-run`):
 
-| Entry | `edgesharp.wasm` | `avif_enc.wasm` | Worker JS | Total raw | Total gzip | Plan |
-|---|---|---|---|---|---|---|
-| `src/worker.ts` | 172 KB | 1.55 MB | 14 KB | ~1.73 MB | ~838 KB | Free |
+| Entry | `edgesharp.wasm` | `avif_enc.wasm` | Worker JS | Total raw | Total gzip |
+|---|---|---|---|---|---|
+| `src/worker.ts` | 172 KB | 1.55 MB | 14 KB | ~1.73 MB | ~838 KB |
 
 The cold-boot cost over the old JPEG/PNG/WebP-only bundle (~90 KB gzip) is small (~15–40 ms): wrangler precompiles the libavif WASM at deploy time, and the encoder is only instantiated on the first AVIF request. Workers that never serve AVIF never pay the libavif startup cost.
 
