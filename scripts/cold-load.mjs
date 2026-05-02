@@ -22,29 +22,39 @@ const TARGET = process.env.IMAGEMODE_URL || "https://playground.edgesharp.teamch
 const WIDTHS = [640, 1200, 3840];
 const QUALITY = 75;
 const ACCEPT = "image/avif,image/webp,image/png,image/jpeg,*/*";
-const CONCURRENCY = 4;
+// Concurrency 2 keeps us under most origins' rate limits. Picsum throws 403
+// at higher concurrency; that's an origin issue, not edgesharp's, but it
+// muddies the error rate. Cold-burst behavior on the Worker is exercised by
+// 51 distinct (url, width) pairs regardless of concurrency.
+const CONCURRENCY = 2;
 
-// Public stable test images. Picsum gives us deterministic seeds (same image
-// every run for a given seed); Wikimedia covers PNG + larger sources.
+// Use a per-run random seed so each invocation hits cold paths (the worker's
+// cache key includes the source URL, so reusing seeds across runs would mask
+// cold-transform regressions behind R2 hits).
+const RUN_SEED = Math.floor(Math.random() * 1_000_000_000);
+
 const TEST_IMAGES = [
-  "https://picsum.photos/seed/1/2000/1500",
-  "https://picsum.photos/seed/2/2400/1600",
-  "https://picsum.photos/seed/3/3200/2400",
-  "https://picsum.photos/seed/4/1600/1200",
-  "https://picsum.photos/seed/5/2880/1920",
-  "https://picsum.photos/seed/6/4000/3000",
-  "https://picsum.photos/seed/7/1920/1080",
-  "https://picsum.photos/seed/8/2560/1440",
-  "https://picsum.photos/seed/9/3000/2000",
-  "https://picsum.photos/seed/10/2200/1467",
-  "https://picsum.photos/seed/11/1500/1000",
-  "https://picsum.photos/seed/12/2048/1365",
-  "https://picsum.photos/seed/13/3840/2160",
-  "https://picsum.photos/seed/14/1200/800",
-  "https://picsum.photos/seed/15/2700/1800",
-  // Wikimedia Commons, varies in source format
+  // Picsum, varied sizes
+  `https://picsum.photos/seed/${RUN_SEED}-a/2000/1500`,
+  `https://picsum.photos/seed/${RUN_SEED}-b/2400/1600`,
+  `https://picsum.photos/seed/${RUN_SEED}-c/3200/2400`,
+  `https://picsum.photos/seed/${RUN_SEED}-d/1600/1200`,
+  `https://picsum.photos/seed/${RUN_SEED}-e/2880/1920`,
+  `https://picsum.photos/seed/${RUN_SEED}-f/4000/3000`,
+  `https://picsum.photos/seed/${RUN_SEED}-g/1920/1080`,
+  `https://picsum.photos/seed/${RUN_SEED}-h/2560/1440`,
+  `https://picsum.photos/seed/${RUN_SEED}-i/3000/2000`,
+  `https://picsum.photos/seed/${RUN_SEED}-j/2200/1467`,
+  `https://picsum.photos/seed/${RUN_SEED}-k/1500/1000`,
+  `https://picsum.photos/seed/${RUN_SEED}-l/2048/1365`,
+  `https://picsum.photos/seed/${RUN_SEED}-m/3840/2160`,
+  `https://picsum.photos/seed/${RUN_SEED}-n/1200/800`,
+  `https://picsum.photos/seed/${RUN_SEED}-o/2700/1800`,
+  // Wikimedia Commons, varies in source format. These are stable URLs (the
+  // cache will hit on repeated runs); included to verify the User-Agent fix
+  // and PNG decode path.
   "https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/800px-PNG_transparency_demonstration_1.png",
-  "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Eq_it-na_pizza-margherita_sep2005_sml.jpg/1280px-Eq_it-na_pizza-margherita_sep2005_sml.jpg",
+  "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/Aldrin_Apollo_11.jpg/800px-Aldrin_Apollo_11.jpg",
 ];
 
 function buildUrl(srcUrl, width) {
