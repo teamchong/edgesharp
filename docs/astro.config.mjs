@@ -3,7 +3,7 @@ import starlight from "@astrojs/starlight";
 
 export default defineConfig({
   // Canonical docs URL. Update if you deploy docs to a different host.
-  site: "https://edgesharp-docs.teamchong.net",
+  site: "https://edgesharp.teamchong.net",
   integrations: [
     starlight({
       title: "edgesharp",

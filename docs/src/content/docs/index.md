@@ -3,16 +3,22 @@ title: edgesharp
 description: Zero-cost image optimization on Cloudflare Workers via Zig WASM SIMD.
 template: splash
 hero:
-  tagline: Drop-in image optimization for Next.js apps. Free at any scale. Powered by Zig WASM SIMD on Cloudflare Workers.
+  tagline: Drop-in image optimization for Next.js apps. Powered by Zig WASM SIMD on Cloudflare Workers.
   actions:
+    - text: Try the playground
+      link: https://playground.edgesharp.teamchong.net
+      icon: external
     - text: Get Started
       link: /getting-started/
       icon: right-arrow
+      variant: secondary
     - text: GitHub
       link: https://github.com/teamchong/edgesharp
       icon: external
       variant: minimal
 ---
+
+> **Live demo:** [`playground.edgesharp.teamchong.net`](https://playground.edgesharp.teamchong.net) — paste any image URL, pick a width, watch the transform happen on a real Cloudflare Worker.
 
 ## Who this is for
 

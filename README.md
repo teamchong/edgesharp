@@ -101,20 +101,20 @@ not feature-parity with Sharp. Currently unsupported:
 What we *do* handle that the Next.js default also handles: baseline + progressive
 JPEGs, PNGs, WebP (still and animated passthrough), GIF (still and animated
 passthrough), AVIF, SVG (passthrough with restrictive CSP). See
-[Compatibility](https://edgesharp-docs.teamchong.net/compatibility/) for the
+[Compatibility](https://edgesharp.teamchong.net/compatibility/) for the
 full side-by-side.
 
 ## Documentation
 
-Full docs at **<https://edgesharp-docs.teamchong.net>**.
+Full docs at **<https://edgesharp.teamchong.net>**.
 
-- [How it works](https://edgesharp-docs.teamchong.net/how-it-works/)
-- [Next.js integration](https://edgesharp-docs.teamchong.net/nextjs-integration/)
-- [Configuration](https://edgesharp-docs.teamchong.net/configuration/)
-- [Compatibility](https://edgesharp-docs.teamchong.net/compatibility/) — what's supported vs Next.js's default loader
-- [Deployment](https://edgesharp-docs.teamchong.net/deployment/)
-- [Production hardening](https://edgesharp-docs.teamchong.net/production-hardening/) — what to set before linking the Worker URL publicly
-- [Architecture](https://edgesharp-docs.teamchong.net/architecture/)
+- [How it works](https://edgesharp.teamchong.net/how-it-works/)
+- [Next.js integration](https://edgesharp.teamchong.net/nextjs-integration/)
+- [Configuration](https://edgesharp.teamchong.net/configuration/)
+- [Compatibility](https://edgesharp.teamchong.net/compatibility/) — what's supported vs Next.js's default loader
+- [Deployment](https://edgesharp.teamchong.net/deployment/)
+- [Production hardening](https://edgesharp.teamchong.net/production-hardening/) — what to set before linking the Worker URL publicly
+- [Architecture](https://edgesharp.teamchong.net/architecture/)
 
 ## License
 

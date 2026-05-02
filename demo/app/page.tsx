@@ -17,6 +17,26 @@ import Image from 'next/image';
 export default function Home() {
   return (
     <main className="max-w-6xl mx-auto px-6 py-10">
+      <nav className="flex items-center justify-end gap-5 text-sm mb-6">
+        <a
+          href="https://edgesharp.teamchong.net"
+          className="text-neutral-400 hover:text-orange-200"
+        >
+          Docs
+        </a>
+        <a
+          href="https://github.com/teamchong/edgesharp"
+          className="text-neutral-400 hover:text-orange-200"
+        >
+          GitHub
+        </a>
+        <a
+          href="https://deploy.workers.cloudflare.com/?url=https://github.com/teamchong/edgesharp"
+          className="px-3 py-1.5 rounded-md bg-orange-500/10 text-orange-200 border border-orange-400/30 hover:bg-orange-500/20"
+        >
+          Deploy to Cloudflare
+        </a>
+      </nav>
       <header className="mb-12">
         <div className="flex items-baseline gap-3 flex-wrap">
           <h1 className="text-3xl font-bold tracking-tight">edgesharp</h1>
@@ -148,7 +168,29 @@ export default function Home() {
       </section>
 
       <footer className="text-center text-neutral-500 text-sm pb-8 pt-6 border-t border-neutral-900">
-        <p>
+        <p className="mb-2">
+          <a
+            href="https://edgesharp.teamchong.net"
+            className="text-orange-300 hover:text-orange-200 mx-2"
+          >
+            Documentation
+          </a>
+          ·
+          <a
+            href="https://github.com/teamchong/edgesharp"
+            className="text-orange-300 hover:text-orange-200 mx-2"
+          >
+            GitHub
+          </a>
+          ·
+          <a
+            href="https://deploy.workers.cloudflare.com/?url=https://github.com/teamchong/edgesharp"
+            className="text-orange-300 hover:text-orange-200 mx-2"
+          >
+            Deploy your own
+          </a>
+        </p>
+        <p className="text-xs text-neutral-600">
           Built with Zig{" "}
           <a
             href="https://ziglang.org"
@@ -156,13 +198,7 @@ export default function Home() {
           >
             0.16
           </a>{" "}
-          · runs on Cloudflare Workers + R2 (free egress) ·{" "}
-          <a
-            href="https://github.com/teamchong/edgesharp"
-            className="text-orange-300 hover:text-orange-200"
-          >
-            source on GitHub
-          </a>
+          · runs on Cloudflare Workers + R2 (free egress)
         </p>
       </footer>
     </main>
