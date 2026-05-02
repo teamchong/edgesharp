@@ -1,28 +1,46 @@
 {
   "name": "edgesharp",
   "version": "0.1.0",
-  "description": "Zero-cost image optimization on Cloudflare Workers via Zig WASM SIMD",
+  "description": "Next.js custom image loader for edgesharp — points <Image> at a Cloudflare Worker that does the optimization on Workers + R2.",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/teamchong/edgesharp.git"
+  },
+  "homepage": "https://edgesharp.teamchong.net",
+  "bugs": "https://github.com/teamchong/edgesharp/issues",
+  "keywords": [
+    "nextjs",
+    "next-image",
+    "image",
+    "loader",
+    "cloudflare",
+    "workers",
+    "r2",
+    "image-optimization",
+    "edgesharp"
+  ],
+  "main": "dist/loader.js",
+  "types": "dist/loader.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/loader.d.ts",
+      "import": "./dist/loader.js"
     },
     "./loader": {
-      "import": "./dist/loader.js",
-      "types": "./dist/loader.d.ts"
-    },
-    "./local": {
-      "import": "./dist/local.js",
-      "types": "./dist/local.d.ts"
-    },
-    "./wasm": {
-      "import": "./src/wasm/edgesharp.wasm"
+      "types": "./dist/loader.d.ts",
+      "import": "./dist/loader.js"
     }
   },
+  "files": [
+    "dist/loader.js",
+    "dist/loader.d.ts",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
+    "prepublishOnly": "pnpm run build:loader",
     "dev": "pnpm run build:loader && pnpm run build:demo && wrangler dev",
     "build": "pnpm run build:loader && pnpm run build:demo",
     "build:full": "pnpm run build:wasm && pnpm run build:ts && pnpm run build:demo",

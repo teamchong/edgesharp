@@ -1,0 +1,53 @@
+name: Release
+
+# Publishes the loader package to npm via npm Trusted Publishers (OIDC).
+# The npm package's access settings must list this repository + workflow
+# file (.github/workflows/release.yml) under "Trusted Publisher".
+#
+# Trigger:
+#   - Push a tag matching v* (e.g., `git tag v0.1.0 && git push --tags`)
+#   - Or run "Release" manually from the Actions tab → workflow_dispatch
+#
+# What ships: dist/loader.js, dist/loader.d.ts, LICENSE, README.md, package.json
+# (the "files" allowlist in package.json controls this).
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (must match package.json — leave blank to use current)'
+        required: false
+
+permissions:
+  contents: read
+  id-token: write   # required for npm OIDC provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: 'https://registry.npmjs.org'
+
+      - run: pnpm install --no-frozen-lockfile
+
+      - name: Build loader
+        run: pnpm run build:loader
+
+      - name: Verify the tarball before publishing
+        run: |
+          npm pack --dry-run
+          echo "---"
+          test -f dist/loader.js || (echo "loader.js missing" && exit 1)
+          test -f dist/loader.d.ts || (echo "loader.d.ts missing" && exit 1)
+
+      - name: Publish to npm
+        run: npm publish --provenance --access public
