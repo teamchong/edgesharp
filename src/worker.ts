@@ -124,7 +124,7 @@ const MAX_SOURCE_BYTES = 25 * 1024 * 1024;
 const FORMAT_WIDTH_CAP: Record<OutputFormat, number> = {
   jpeg: 3840,
   png: 2560,
-  webp: 2880,
+  webp: 2560,
   avif: 2560,
 };
 
