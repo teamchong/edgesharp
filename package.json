@@ -1,6 +1,6 @@
 {
   "name": "edgesharp",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Next.js custom image loader for edgesharp — points <Image> at a Cloudflare Worker that does the optimization on Workers + R2.",
   "type": "module",
   "license": "MIT",
