@@ -1,0 +1,39 @@
+name: Cold-load probe
+
+# Runs scripts/cold-load.mjs against the live playground daily and on demand.
+# Catches "transforms started failing" regressions that wouldn't show up in
+# the regular CI tests (which run against `wrangler dev`, not production).
+#
+# Triggers:
+#   - schedule: every day at 14:00 UTC (mid-morning Pacific, mid-afternoon EU)
+#   - workflow_dispatch: run from the Actions tab before sharing the link
+#
+# The job fails only when edgesharp's own fault rate exceeds 10% — origin-side
+# 4xx/5xx (Picsum rate-limiting, dead Wikimedia URLs) get reported but don't
+# break the build, since they're outside our control.
+
+on:
+  schedule:
+    - cron: "0 14 * * *"
+  workflow_dispatch:
+    inputs:
+      threshold:
+        description: "Edgesharp fault rate threshold (0-1). Job fails above this."
+        required: false
+        default: "0.10"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Probe playground
+        env:
+          IMAGEMODE_URL: https://playground.edgesharp.teamchong.net
+          EDGESHARP_FAIL_THRESHOLD: ${{ inputs.threshold || '0.10' }}
+        run: node scripts/cold-load.mjs
