@@ -343,36 +343,45 @@ export default {
     } else if (outputFormat === "avif") {
       // Native AVIF: WASM decodes + resizes to RGBA, jsquash encodes the
       // tile-based AV1 bitstream. No CF Images dependency, no per-transform fee.
+      //
+      // Failure chain:
+      //   1) requested width
+      //   2) SAFE_RESIZE_WIDTH retry if the WASM heap couldn't hold the resize
+      //      destination (a 4000×3000 source at w=3840 peaks ~92 MB)
+      //   3) source passthrough (the original bytes) — page renders, slow load,
+      //      better than a blank tile.
+      // Each step wrapped in try/catch because the DO can throw (not just
+      // return 500) when a WASM allocation fails hard, and an uncaught throw
+      // bubbles up as a Cloudflare-level Internal Error — which the user sees
+      // as a broken page with no diagnostic.
       const slot = hashSlot(imageUrl, 16);
       const doId = env.IMAGE_DO.idFromName(`img-slot-${slot}`);
       const doHandle = env.IMAGE_DO.get(doId);
 
-      // Try at requested width first. If the WASM heap can't hold both the
-      // decoded source RGBA and the resize destination simultaneously (a
-      // 4000×3000 source at w=3840 needs ~92 MB, which exceeds the 128 MB
-      // isolate budget once libavif's working set is added), retry at a
-      // smaller width. Better to ship a slightly-less-crisp AVIF than a
-      // 1×1 fallback pixel.
-      let rawResponse = await doHandle.fetch("https://edgesharp.internal/transform", {
-        method: "POST",
-        body: sourceBytes,
-        headers: { "X-Target-Width": String(width), "X-Output-Mode": "rgba" },
-      });
-      let triedWidth = width;
-      if (!rawResponse.ok && width > SAFE_RESIZE_WIDTH) {
-        const errBody = await rawResponse.text().catch(() => "");
-        console.error(`edgesharp avif retry url=${JSON.stringify(imageUrl)} from=${width} to=${SAFE_RESIZE_WIDTH} reason=${rawResponse.status}:${errBody.slice(0, 80)}`);
-        rawResponse = await doHandle.fetch("https://edgesharp.internal/transform", {
-          method: "POST",
-          body: sourceBytes,
-          headers: { "X-Target-Width": String(SAFE_RESIZE_WIDTH), "X-Output-Mode": "rgba" },
-        });
-        triedWidth = SAFE_RESIZE_WIDTH;
+      const tryDoRgba = async (w: number): Promise<Response | null> => {
+        try {
+          return await doHandle.fetch("https://edgesharp.internal/transform", {
+            method: "POST",
+            body: sourceBytes,
+            headers: { "X-Target-Width": String(w), "X-Output-Mode": "rgba" },
+          });
+        } catch (err) {
+          console.error(`edgesharp avif do-throw url=${JSON.stringify(imageUrl)} w=${w} err=${err instanceof Error ? err.message : String(err)}`);
+          return null;
+        }
+      };
+
+      let rawResponse = await tryDoRgba(width);
+      if ((!rawResponse || !rawResponse.ok) && width > SAFE_RESIZE_WIDTH) {
+        const reason = rawResponse ? `${rawResponse.status}` : "throw";
+        console.error(`edgesharp avif retry url=${JSON.stringify(imageUrl)} from=${width} to=${SAFE_RESIZE_WIDTH} reason=${reason}`);
+        rawResponse = await tryDoRgba(SAFE_RESIZE_WIDTH);
       }
-      if (!rawResponse.ok) {
-        const errBody = await rawResponse.text().catch(() => "");
-        return fallbackPixel(`avif-decode:${rawResponse.status}:${errBody.slice(0, 80)}`, imageUrl, etag);
+      if (!rawResponse || !rawResponse.ok) {
+        const reason = rawResponse ? `${rawResponse.status}` : "throw";
+        return passthroughOnFailure(sourceBytes, contentType, etag, ctx, cache, cacheRequest, `avif-decode:${reason}`, imageUrl);
       }
+
       const rawBuf = new Uint8Array(await rawResponse.arrayBuffer());
       const rgbaWidth = parseInt(rawResponse.headers.get("X-Image-Width") ?? "0", 10);
       const rgbaHeight = parseInt(rawResponse.headers.get("X-Image-Height") ?? "0", 10);
@@ -380,11 +389,15 @@ export default {
 
       // libavif is statically imported but lazily instantiated, the WASM
       // module sits idle in memory until the first AVIF request hits this branch.
-      const avifEncoder = createAvifEncoder(env);
-      const avifBytes = await avifEncoder(rgba, rgbaWidth, rgbaHeight, quality);
-      optimizedBody = avifBytes;
-      outputMime = "image/avif";
-      void triedWidth;
+      try {
+        const avifEncoder = createAvifEncoder(env);
+        const avifBytes = await avifEncoder(rgba, rgbaWidth, rgbaHeight, quality);
+        optimizedBody = avifBytes;
+        outputMime = "image/avif";
+      } catch (err) {
+        console.error(`edgesharp avif encode-throw url=${JSON.stringify(imageUrl)} err=${err instanceof Error ? err.message : String(err)}`);
+        return passthroughOnFailure(sourceBytes, contentType, etag, ctx, cache, cacheRequest, `avif-encode:throw`, imageUrl);
+      }
     } else {
       // Default: free transform via Durable Object → WASM JPEG / PNG / WebP
       const wasmFormat = FORMAT_WASM_CODE[outputFormat] ?? 0;
@@ -392,35 +405,33 @@ export default {
       const doId = env.IMAGE_DO.idFromName(`img-slot-${slot}`);
       const doHandle = env.IMAGE_DO.get(doId);
 
-      // Same memory-pressure retry as the AVIF branch: large source × large
-      // target = peak RGBA buffers exceed the WASM heap. Fall back to
-      // SAFE_RESIZE_WIDTH so the user gets a real optimized image.
-      let transformResponse = await doHandle.fetch("https://edgesharp.internal/transform", {
-        method: "POST",
-        body: sourceBytes,
-        headers: {
-          "X-Target-Width": String(width),
-          "X-Output-Format": String(wasmFormat),
-          "X-Quality": String(quality),
-        },
-      });
-      if (!transformResponse.ok && width > SAFE_RESIZE_WIDTH) {
-        const errBody = await transformResponse.text().catch(() => "");
-        console.error(`edgesharp wasm retry url=${JSON.stringify(imageUrl)} format=${outputFormat} from=${width} to=${SAFE_RESIZE_WIDTH} reason=${transformResponse.status}:${errBody.slice(0, 80)}`);
-        transformResponse = await doHandle.fetch("https://edgesharp.internal/transform", {
-          method: "POST",
-          body: sourceBytes,
-          headers: {
-            "X-Target-Width": String(SAFE_RESIZE_WIDTH),
-            "X-Output-Format": String(wasmFormat),
-            "X-Quality": String(quality),
-          },
-        });
+      const tryDoEncoded = async (w: number): Promise<Response | null> => {
+        try {
+          return await doHandle.fetch("https://edgesharp.internal/transform", {
+            method: "POST",
+            body: sourceBytes,
+            headers: {
+              "X-Target-Width": String(w),
+              "X-Output-Format": String(wasmFormat),
+              "X-Quality": String(quality),
+            },
+          });
+        } catch (err) {
+          console.error(`edgesharp wasm do-throw url=${JSON.stringify(imageUrl)} format=${outputFormat} w=${w} err=${err instanceof Error ? err.message : String(err)}`);
+          return null;
+        }
+      };
+
+      let transformResponse = await tryDoEncoded(width);
+      if ((!transformResponse || !transformResponse.ok) && width > SAFE_RESIZE_WIDTH) {
+        const reason = transformResponse ? `${transformResponse.status}` : "throw";
+        console.error(`edgesharp wasm retry url=${JSON.stringify(imageUrl)} format=${outputFormat} from=${width} to=${SAFE_RESIZE_WIDTH} reason=${reason}`);
+        transformResponse = await tryDoEncoded(SAFE_RESIZE_WIDTH);
       }
 
-      if (!transformResponse.ok) {
-        const errBody = await transformResponse.text().catch(() => "");
-        return fallbackPixel(`wasm-transform:${transformResponse.status}:${errBody.slice(0, 80)}`, imageUrl, etag);
+      if (!transformResponse || !transformResponse.ok) {
+        const reason = transformResponse ? `${transformResponse.status}` : "throw";
+        return passthroughOnFailure(sourceBytes, contentType, etag, ctx, cache, cacheRequest, `wasm-transform:${reason}`, imageUrl);
       }
 
       optimizedBody = await transformResponse.arrayBuffer();
@@ -730,13 +741,13 @@ function buildCacheKey(
 
 /**
  * Fallback response when a transform fails or a source is rejected pre-flight.
- * Returns a 1×1 transparent PNG instead of either passing through multi-MB
- * source bytes (which would tank page load) or throwing a 5xx (which paints
- * a broken image icon). The page layout doesn't shift, the user sees an empty
- * box, and the failure shows up in Workers Logs via console.error.
+ * Returns a 1×1 transparent PNG. Used only when we don't have source bytes to
+ * fall back to (e.g., the pre-flight Content-Length check rejects a source
+ * before we read its body). Browsers render it as an empty box, page layout
+ * doesn't shift, and the failure shows up in Workers Logs via console.error.
  *
- * Cache-Control is short (60s) so transient failures get retried on the next
- * cold request rather than baked into R2 forever.
+ * Short Cache-Control (60s) so transient failures retry on the next cold
+ * request rather than getting baked into R2 forever.
  */
 function fallbackPixel(reason: string, sourceUrl: string, etag: string): Response {
   console.error(`edgesharp transform-fail url=${JSON.stringify(sourceUrl)} reason=${reason}`);
@@ -750,6 +761,42 @@ function fallbackPixel(reason: string, sourceUrl: string, etag: string): Respons
       "X-Content-Type-Options": "nosniff",
     },
   });
+}
+
+/**
+ * Last-resort fallback for transform failures: serve the original source bytes
+ * with the original Content-Type. Slower page load than an optimized output,
+ * but the image renders. Strictly better UX than a 1×1 pixel for users who
+ * can see a broken playground but can't tell why. Logged as an edgesharp
+ * fault so the failure stays visible in Workers Logs.
+ *
+ * Cache the passthrough at L1 (Cache API) only, with short TTL: the R2 key
+ * encodes the negotiated output format, which won't match the source's
+ * actual Content-Type, and we want failed transforms to be retried later.
+ */
+function passthroughOnFailure(
+  sourceBytes: Uint8Array,
+  contentType: string,
+  etag: string,
+  ctx: ExecutionContext,
+  cache: Cache,
+  cacheRequest: Request,
+  reason: string,
+  sourceUrl: string,
+): Response {
+  console.error(`edgesharp transform-fail url=${JSON.stringify(sourceUrl)} reason=${reason} fallback=passthrough bytes=${sourceBytes.byteLength}`);
+  const response = new Response(sourceBytes as BodyInit, {
+    status: 200,
+    headers: {
+      "Content-Type": contentType,
+      "Cache-Control": "public, max-age=60",
+      ETag: etag,
+      "X-Edgesharp-Fallback": reason,
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
+  ctx.waitUntil(cache.put(cacheRequest, response.clone()));
+  return response;
 }
 
 function hashSlot(key: string, poolSize: number): number {
