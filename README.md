@@ -4,6 +4,8 @@ Cloudflare-native image optimization for Next.js. A drop-in replacement for the
 default `/_next/image` endpoint, running on Cloudflare Workers with Zig WASM
 SIMD for JPEG/PNG/WebP and a vendored libavif for native AVIF.
 
+**[Live playground](https://playground.edgesharp.teamchong.net)** · **[Documentation](https://edgesharp.teamchong.net)**
+
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/teamchong/edgesharp)
 
 ## What it is
