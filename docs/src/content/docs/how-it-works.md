@@ -52,7 +52,7 @@ Browser                    edgesharp Worker                Your Next.js app
 
 WASM modules need V8 TurboFan to compile the SIMD code for peak performance. Cold starts use Liftoff (baseline compiler), which is slower.
 
-edgesharp uses deterministically named Durable Objects (`img-slot-0` through `img-slot-7`) to keep WASM instances warm. After the first request compiles the WASM, subsequent requests to the same slot run at full TurboFan speed.
+edgesharp uses deterministically named Durable Objects (`img-slot-0` through `img-slot-15`) to keep WASM instances warm. After the first request compiles the WASM, subsequent requests to the same slot run at full TurboFan speed.
 
 The slot is chosen by hashing the image URL, distributing load evenly across the pool.
 
