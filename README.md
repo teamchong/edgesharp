@@ -108,7 +108,11 @@ with the repo so deploy-button users don't need Zig.
   supported.
 - **R2 storage** — [$0.015 / GB-month](https://developers.cloudflare.com/r2/pricing/);
   egress is free.
-- No per-transform fees. Compare to [Vercel image optimization
+- No per-transform fees. After the first cold transform of each `(url,
+  width, quality, format)`, repeat requests serve from R2 with free egress.
+  CPU cost is per distinct variant, not per request — so crawler traffic
+  on URLs you've already served doesn't scale costs the way per-transform
+  pricing does. Compare to [Vercel image optimization
   pricing](https://vercel.com/docs/image-optimization/limits-and-pricing).
 
 ## Limitations
