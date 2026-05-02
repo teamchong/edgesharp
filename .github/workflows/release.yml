@@ -58,9 +58,8 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: '24'
           cache: pnpm
-          registry-url: 'https://registry.npmjs.org'
 
       - run: pnpm install --no-frozen-lockfile
 
@@ -72,6 +71,14 @@ jobs:
           npm pack --dry-run
           test -f dist/loader.js || (echo "loader.js missing" && exit 1)
           test -f dist/loader.d.ts || (echo "loader.d.ts missing" && exit 1)
+
+      # Re-setup Node with registry-url right before publish (matches turboquant
+      # pattern). This writes the npmrc so npm CLI uses the OIDC trusted-publisher
+      # path on npm 11.5.1+ (Node 24 ships ~11.6).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Publish to npm (OIDC)
         run: npm publish --provenance --access public
