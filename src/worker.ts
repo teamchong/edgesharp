@@ -99,6 +99,29 @@ const IMAGE_SIZES = [16, 32, 48, 64, 96, 128, 256, 384];
 const ALLOWED_WIDTHS = new Set([...DEVICE_SIZES, ...IMAGE_SIZES, 0]);
 const MAX_URL_LENGTH = 3072;
 const MAX_WIDTH = 3840;
+// Reject sources larger than this BEFORE reading the body. Worker isolate
+// memory is 128 MB; a 4000×4000 RGBA buffer alone is 64 MB, so anything
+// above ~25 MB compressed is almost certainly going to OOM during decode.
+// Picked 25 MB to comfortably cover real 4K photos at high quality (~10 MB
+// is typical) while rejecting 50 MB+ DSLR exports that would crash decode.
+const MAX_SOURCE_BYTES = 25 * 1024 * 1024;
+
+// 67-byte 1×1 transparent PNG. Used as the fallback response when a transform
+// fails or a source is rejected pre-flight. Browsers render it as an empty
+// box, the page layout doesn't shift, and we don't ship multi-MB source bytes
+// just because we couldn't optimize them. We log via console.error so the
+// failure shows up in Workers Logs for investigation.
+const TRANSPARENT_PNG_1X1 = new Uint8Array([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+  0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+  0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+  0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4,
+  0x89, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x44, 0x41,
+  0x54, 0x78, 0x9c, 0x62, 0x00, 0x01, 0x00, 0x00,
+  0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00,
+  0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae,
+  0x42, 0x60, 0x82,
+]);
 
 const SAFE_IMAGE_TYPES = new Set([
   "image/jpeg", "image/png", "image/gif", "image/webp", "image/avif",
@@ -215,9 +238,20 @@ export default {
     // ── L3: Fetch source bytes ──
     // Same-origin paths (/demo/*, /sample/*, anything bundled) come from
     // the ASSETS binding; remote paths fall through to ORIGIN.
+    //
+    // Set a real User-Agent and an Accept: image/* header — Wikimedia
+    // Commons, some Cloudinary buckets, and a few CDN-style hosts return
+    // 4xx for empty/unrecognized UAs. Without these, perfectly valid image
+    // URLs fail with origin-level 404/403 even though they work in any
+    // browser.
     const originResponse = env.ASSETS && imageUrl.startsWith("/demo/")
       ? await env.ASSETS.fetch(new Request(`${url.origin}${imageUrl}`))
-      : await fetch(originUrl);
+      : await fetch(originUrl, {
+          headers: {
+            "User-Agent": "edgesharp/1 (+https://github.com/teamchong/edgesharp)",
+            Accept: "image/*",
+          },
+        });
     if (!originResponse.ok) {
       return new Response(`Origin returned ${originResponse.status}`, { status: 404 });
     }
@@ -227,7 +261,26 @@ export default {
       return new Response("Unsupported image type: " + contentType, { status: 400 });
     }
 
+    // Pre-flight size check — Content-Length is advisory (origin can lie or
+    // omit it) but when it's present we can reject obvious abuse cases without
+    // reading the body. Saves the OOM failure mode for sources we know upfront
+    // are too large to decode safely.
+    const sizeHeader = originResponse.headers.get("Content-Length");
+    if (sizeHeader) {
+      const sizeBytes = parseInt(sizeHeader, 10);
+      if (Number.isFinite(sizeBytes) && sizeBytes > MAX_SOURCE_BYTES) {
+        return fallbackPixel(`source-too-large:${sizeBytes}`, imageUrl, etag);
+      }
+    }
+
     const sourceBytes = new Uint8Array(await originResponse.arrayBuffer());
+
+    // Some origins serve binary files without Content-Length; catch those here
+    // after the body's already in memory but before we hand multi-MB buffers
+    // to the WASM decoder.
+    if (sourceBytes.byteLength > MAX_SOURCE_BYTES) {
+      return fallbackPixel(`source-too-large:${sourceBytes.byteLength}`, imageUrl, etag);
+    }
 
     // ── Passthrough paths (no transform) ──
     // SVG is vector and animated images would lose their animation if we
@@ -295,9 +348,8 @@ export default {
         },
       });
       if (!rawResponse.ok) {
-        return new Response(sourceBytes, {
-          headers: { "Content-Type": contentType, ...SECURITY_HEADERS },
-        });
+        const errBody = await rawResponse.text().catch(() => "");
+        return fallbackPixel(`avif-decode:${rawResponse.status}:${errBody.slice(0, 80)}`, imageUrl, etag);
       }
       const rawBuf = new Uint8Array(await rawResponse.arrayBuffer());
       const rgbaWidth = parseInt(rawResponse.headers.get("X-Image-Width") ?? "0", 10);
@@ -328,9 +380,8 @@ export default {
       });
 
       if (!transformResponse.ok) {
-        return new Response(sourceBytes, {
-          headers: { "Content-Type": contentType, ...SECURITY_HEADERS },
-        });
+        const errBody = await transformResponse.text().catch(() => "");
+        return fallbackPixel(`wasm-transform:${transformResponse.status}:${errBody.slice(0, 80)}`, imageUrl, etag);
       }
 
       optimizedBody = await transformResponse.arrayBuffer();
@@ -636,6 +687,30 @@ function buildCacheKey(
   format: string,
 ): string {
   return `${workerOrigin}/cache/${encodeURIComponent(imagePath)}/w${width}_q${quality}.${format}`;
+}
+
+/**
+ * Fallback response when a transform fails or a source is rejected pre-flight.
+ * Returns a 1×1 transparent PNG instead of either passing through multi-MB
+ * source bytes (which would tank page load) or throwing a 5xx (which paints
+ * a broken image icon). The page layout doesn't shift, the user sees an empty
+ * box, and the failure shows up in Workers Logs via console.error.
+ *
+ * Cache-Control is short (60s) so transient failures get retried on the next
+ * cold request rather than baked into R2 forever.
+ */
+function fallbackPixel(reason: string, sourceUrl: string, etag: string): Response {
+  console.error(`edgesharp transform-fail url=${JSON.stringify(sourceUrl)} reason=${reason}`);
+  return new Response(TRANSPARENT_PNG_1X1, {
+    status: 200,
+    headers: {
+      "Content-Type": "image/png",
+      "Cache-Control": "public, max-age=60",
+      ETag: etag,
+      "X-Edgesharp-Fallback": reason,
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
 }
 
 function hashSlot(key: string, poolSize: number): number {
