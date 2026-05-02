@@ -282,7 +282,7 @@ export default {
     } else if (outputFormat === "avif") {
       // Native AVIF: WASM decodes + resizes to RGBA, jsquash encodes the
       // tile-based AV1 bitstream. No CF Images dependency, no per-transform fee.
-      const slot = hashSlot(imageUrl, 8);
+      const slot = hashSlot(imageUrl, 16);
       const doId = env.IMAGE_DO.idFromName(`img-slot-${slot}`);
       const doHandle = env.IMAGE_DO.get(doId);
 
@@ -313,7 +313,7 @@ export default {
     } else {
       // Default: free transform via Durable Object → WASM JPEG / PNG / WebP
       const wasmFormat = FORMAT_WASM_CODE[outputFormat] ?? 0;
-      const slot = hashSlot(imageUrl, 8);
+      const slot = hashSlot(imageUrl, 16);
       const doId = env.IMAGE_DO.idFromName(`img-slot-${slot}`);
       const doHandle = env.IMAGE_DO.get(doId);
 

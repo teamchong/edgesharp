@@ -48,7 +48,7 @@ edgesharp premultiplies alpha before resizing and unpremultiplies after, matchin
 
 ## Durable Object pool
 
-8 deterministically named DOs (`img-slot-0` through `img-slot-7`) hold warm WASM instances. The slot is chosen by hashing the image URL.
+16 deterministically named DOs (`img-slot-0` through `img-slot-7`) hold warm WASM instances. The slot is chosen by hashing the image URL.
 
 V8's compilation tiers:
 1. **Liftoff** (first request) — fast compile, slower execution
