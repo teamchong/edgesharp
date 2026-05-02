@@ -106,6 +106,14 @@ const MAX_WIDTH = 3840;
 // is typical) while rejecting 50 MB+ DSLR exports that would crash decode.
 const MAX_SOURCE_BYTES = 25 * 1024 * 1024;
 
+// Fallback target width when the requested width can't be resized inside the
+// WASM heap budget. Lanczos3 holds the decoded source RGBA AND the resize
+// destination simultaneously — for a 4000×3000 source resizing to 3840×2880,
+// peak is ~92 MB which collides with libavif's working set. Retrying at
+// 2048 keeps peak under ~60 MB and almost always succeeds. Picked to match
+// Next.js's default deviceSizes (2048 is the second-largest emitted width).
+const SAFE_RESIZE_WIDTH = 2048;
+
 // 67-byte 1×1 transparent PNG. Used as the fallback response when a transform
 // fails or a source is rejected pre-flight. Browsers render it as an empty
 // box, the page layout doesn't shift, and we don't ship multi-MB source bytes
@@ -339,14 +347,28 @@ export default {
       const doId = env.IMAGE_DO.idFromName(`img-slot-${slot}`);
       const doHandle = env.IMAGE_DO.get(doId);
 
-      const rawResponse = await doHandle.fetch("https://edgesharp.internal/transform", {
+      // Try at requested width first. If the WASM heap can't hold both the
+      // decoded source RGBA and the resize destination simultaneously (a
+      // 4000×3000 source at w=3840 needs ~92 MB, which exceeds the 128 MB
+      // isolate budget once libavif's working set is added), retry at a
+      // smaller width. Better to ship a slightly-less-crisp AVIF than a
+      // 1×1 fallback pixel.
+      let rawResponse = await doHandle.fetch("https://edgesharp.internal/transform", {
         method: "POST",
         body: sourceBytes,
-        headers: {
-          "X-Target-Width": String(width),
-          "X-Output-Mode": "rgba",
-        },
+        headers: { "X-Target-Width": String(width), "X-Output-Mode": "rgba" },
       });
+      let triedWidth = width;
+      if (!rawResponse.ok && width > SAFE_RESIZE_WIDTH) {
+        const errBody = await rawResponse.text().catch(() => "");
+        console.error(`edgesharp avif retry url=${JSON.stringify(imageUrl)} from=${width} to=${SAFE_RESIZE_WIDTH} reason=${rawResponse.status}:${errBody.slice(0, 80)}`);
+        rawResponse = await doHandle.fetch("https://edgesharp.internal/transform", {
+          method: "POST",
+          body: sourceBytes,
+          headers: { "X-Target-Width": String(SAFE_RESIZE_WIDTH), "X-Output-Mode": "rgba" },
+        });
+        triedWidth = SAFE_RESIZE_WIDTH;
+      }
       if (!rawResponse.ok) {
         const errBody = await rawResponse.text().catch(() => "");
         return fallbackPixel(`avif-decode:${rawResponse.status}:${errBody.slice(0, 80)}`, imageUrl, etag);
@@ -362,6 +384,7 @@ export default {
       const avifBytes = await avifEncoder(rgba, rgbaWidth, rgbaHeight, quality);
       optimizedBody = avifBytes;
       outputMime = "image/avif";
+      void triedWidth;
     } else {
       // Default: free transform via Durable Object → WASM JPEG / PNG / WebP
       const wasmFormat = FORMAT_WASM_CODE[outputFormat] ?? 0;
@@ -369,7 +392,10 @@ export default {
       const doId = env.IMAGE_DO.idFromName(`img-slot-${slot}`);
       const doHandle = env.IMAGE_DO.get(doId);
 
-      const transformResponse = await doHandle.fetch("https://edgesharp.internal/transform", {
+      // Same memory-pressure retry as the AVIF branch: large source × large
+      // target = peak RGBA buffers exceed the WASM heap. Fall back to
+      // SAFE_RESIZE_WIDTH so the user gets a real optimized image.
+      let transformResponse = await doHandle.fetch("https://edgesharp.internal/transform", {
         method: "POST",
         body: sourceBytes,
         headers: {
@@ -378,6 +404,19 @@ export default {
           "X-Quality": String(quality),
         },
       });
+      if (!transformResponse.ok && width > SAFE_RESIZE_WIDTH) {
+        const errBody = await transformResponse.text().catch(() => "");
+        console.error(`edgesharp wasm retry url=${JSON.stringify(imageUrl)} format=${outputFormat} from=${width} to=${SAFE_RESIZE_WIDTH} reason=${transformResponse.status}:${errBody.slice(0, 80)}`);
+        transformResponse = await doHandle.fetch("https://edgesharp.internal/transform", {
+          method: "POST",
+          body: sourceBytes,
+          headers: {
+            "X-Target-Width": String(SAFE_RESIZE_WIDTH),
+            "X-Output-Format": String(wasmFormat),
+            "X-Quality": String(quality),
+          },
+        });
+      }
 
       if (!transformResponse.ok) {
         const errBody = await transformResponse.text().catch(() => "");
