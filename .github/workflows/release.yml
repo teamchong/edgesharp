@@ -1,33 +1,58 @@
 name: Release
 
-# Publishes the loader package to npm via npm Trusted Publishers (OIDC).
-# The npm package's access settings must list this repository + workflow
-# file (.github/workflows/release.yml) under "Trusted Publisher".
+# Auto-publishes the npm loader package when package.json's version changes
+# on main. The git tag (vX.Y.Z) acts as the source of truth for "already
+# released" — if the tag exists, the workflow skips all release jobs. This
+# means push without bumping = no-op; bump version + push = publish.
 #
-# Trigger:
-#   - Push a tag matching v* (e.g., `git tag v0.1.0 && git push --tags`)
-#   - Or run "Release" manually from the Actions tab → workflow_dispatch
+# Aligned with the turboquant-wasm release flow: check-version → publish-npm
+# → create-tag → github-release. Each job runs only if the previous succeeded.
 #
-# What ships: dist/loader.js, dist/loader.d.ts, LICENSE, README.md, package.json
-# (the "files" allowlist in package.json controls this).
+# npm Trusted Publisher must list this repo + .github/workflows/release.yml.
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version to publish (must match package.json — leave blank to use current)'
-        required: false
-
-permissions:
-  contents: read
-  id-token: write   # required for npm OIDC provenance
+  push:
+    branches:
+      - main
+    paths:
+      - 'package.json'
 
 jobs:
-  publish:
+  check-version:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      should_release: ${{ steps.version.outputs.should_release }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if version needs release
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v$VERSION"
+          echo "Version: $VERSION, Tag: $TAG"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, skipping release"
+            echo "should_release=false" >> $GITHUB_OUTPUT
+          else
+            echo "Version $VERSION not yet released"
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "tag=$TAG" >> $GITHUB_OUTPUT
+            echo "should_release=true" >> $GITHUB_OUTPUT
+          fi
+
+  publish-npm:
+    needs: check-version
+    if: needs.check-version.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # required for npm OIDC provenance
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -42,12 +67,45 @@ jobs:
       - name: Build loader
         run: pnpm run build:loader
 
-      - name: Verify the tarball before publishing
+      - name: Verify tarball before publishing
         run: |
           npm pack --dry-run
-          echo "---"
           test -f dist/loader.js || (echo "loader.js missing" && exit 1)
           test -f dist/loader.d.ts || (echo "loader.d.ts missing" && exit 1)
 
-      - name: Publish to npm
+      - name: Publish to npm (OIDC)
         run: npm publish --provenance --access public
+
+  create-tag:
+    needs: [check-version, publish-npm]
+    if: needs.check-version.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create and push tag
+        run: |
+          TAG="${{ needs.check-version.outputs.tag }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+
+  release:
+    needs: [check-version, publish-npm, create-tag]
+    if: needs.check-version.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.check-version.outputs.tag }}
+          generate_release_notes: true
