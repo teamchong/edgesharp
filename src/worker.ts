@@ -360,9 +360,13 @@ export default {
 
       const tryDoRgba = async (w: number): Promise<Response | null> => {
         try {
+          // Pass a fresh Uint8Array view per call. The Workers runtime can
+          // consume a body buffer on first send; retrying with the same
+          // reference would hand the DO an empty body and the retry would
+          // 400 instead of doing the smaller-width transform.
           return await doHandle.fetch("https://edgesharp.internal/transform", {
             method: "POST",
-            body: sourceBytes,
+            body: new Uint8Array(sourceBytes),
             headers: { "X-Target-Width": String(w), "X-Output-Mode": "rgba" },
           });
         } catch (err) {
@@ -409,7 +413,7 @@ export default {
         try {
           return await doHandle.fetch("https://edgesharp.internal/transform", {
             method: "POST",
-            body: sourceBytes,
+            body: new Uint8Array(sourceBytes),
             headers: {
               "X-Target-Width": String(w),
               "X-Output-Format": String(wasmFormat),
