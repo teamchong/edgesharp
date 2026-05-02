@@ -1,0 +1,15 @@
+# Force LF line endings on all text files. Workers Builds runs Linux;
+# the .pnpmfile.cjs hash baked into pnpm-lock.yaml is sensitive to byte
+# content, so any host that normalizes to CRLF would compute a different
+# pnpmfileChecksum and fail --frozen-lockfile.
+* text=auto eol=lf
+
+# Binary files explicitly marked so git doesn't normalize them
+*.wasm binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.avif binary
+*.gif binary
+*.ico binary
