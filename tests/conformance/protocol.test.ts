@@ -1,5 +1,5 @@
 /**
- * Protocol conformance tests — verify edgesharp matches Next.js image
+ * Protocol conformance tests, verify edgesharp matches Next.js image
  * optimization API contract exactly.
  *
  * Reference: next/dist/server/image-optimizer.js
@@ -161,7 +161,7 @@ describe("content negotiation", () => {
     // The kill switch in CF dashboard. Default is empty (every format
     // enabled); the global setup does not pass DISABLED_FORMATS, so this
     // test asserts the *positive* path. Per-test env override would require
-    // restarting wrangler dev — covered instead by the hand-flip test in
+    // restarting wrangler dev, covered instead by the hand-flip test in
     // tests/avif-disable.test.ts (TODO).
     const res = await fetchImage("?url=/photo.jpg&w=640&q=75", {
       Accept: "image/avif,image/webp,*/*",
@@ -212,7 +212,7 @@ describe("security headers", () => {
 
 describe("content type safety", () => {
   it("passes SVG through with the original Content-Type and CSP+sandbox headers", async () => {
-    // SVG is vector — we can't Lanczos-resize it, so we passthrough with the
+    // SVG is vector, we can't Lanczos-resize it, so we passthrough with the
     // existing CSP (script-src 'none'; sandbox) which neutralizes any embedded
     // scripts the same way Next.js's own loader does.
     const res = await fetchImage("?url=/icon.svg&w=640&q=75");

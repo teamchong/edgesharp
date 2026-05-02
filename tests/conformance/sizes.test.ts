@@ -1,5 +1,5 @@
 /**
- * Size conformance tests — verify edgesharp generates the correct srcSet
+ * Size conformance tests, verify edgesharp generates the correct srcSet
  * widths matching Next.js Image component behavior.
  *
  * Next.js generates specific width breakpoints based on:

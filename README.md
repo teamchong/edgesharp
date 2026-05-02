@@ -19,8 +19,8 @@ SIMD for JPEG/PNG/WebP and a vendored libavif for native AVIF.
   Paid](https://developers.cloudflare.com/workers/platform/pricing/) ($5/month
   per Cloudflare account); Workers Free is not supported (10 ms CPU/request,
   no Durable Objects). A single `DISABLED_FORMATS` env var (a comma-separated
-  list — recognized values: `jpeg`, `png`, `webp`, `avif`, `gif`, `svg`) lets
-  you drop any output format at runtime — flip it in the Cloudflare dashboard,
+  list, recognized values: `jpeg`, `png`, `webp`, `avif`, `gif`, `svg`) lets
+  you drop any output format at runtime, flip it in the Cloudflare dashboard,
   no redeploy. `DISABLED_FORMATS="avif"` is the typical setting since AVIF
   encode is the most CPU-expensive.
 
@@ -49,7 +49,7 @@ Then point the loader at your deployed Worker URL via env var:
 NEXT_PUBLIC_IMAGEMODE_URL=https://your-worker.workers.dev
 ```
 
-`<Image>` components stay exactly as written — `srcSet`, `sizes`, blur
+`<Image>` components stay exactly as written, `srcSet`, `sizes`, blur
 previews, priority, fill mode all unchanged.
 
 Prefer not to use an env var? Make a tiny custom loader file:
@@ -64,16 +64,16 @@ export default createLoader({ url: "https://your-worker.workers.dev" });
 
 ## Deploy your own
 
-The button above takes you through Cloudflare's flow — fork this repo to your
+The button above takes you through Cloudflare's flow, fork this repo to your
 GitHub, connect Workers Builds, auto-create the R2 bucket and Durable Object,
 deploy. The pre-built WASM binaries are committed to the repo so the build
 doesn't need Zig.
 
 After your first deploy, change a few things in your fork's `wrangler.json`:
 
-- **`ORIGIN`** — your Next.js app's origin URL. Path-relative `?url=/foo.jpg`
+- **`ORIGIN`**: your Next.js app's origin URL. Path-relative `?url=/foo.jpg`
   parameters are fetched from here.
-- **`ALLOWED_ORIGINS`** — by default `"*"` (so the demo's "paste any URL"
+- **`ALLOWED_ORIGINS`**: by default `"*"` (so the demo's "paste any URL"
   playground works). Narrow this to a curated list of image hosts before
   putting the Worker in front of real traffic. Pair with [Cloudflare Rate
   Limiting](https://developers.cloudflare.com/waf/rate-limiting-rules/) and
@@ -102,28 +102,28 @@ with the repo so deploy-button users don't need Zig.
 
 ## Costs
 
-- **Cloudflare Workers Paid** —
+- **Cloudflare Workers Paid** -
   [$5/month per Cloudflare account](https://developers.cloudflare.com/workers/platform/pricing/),
   10M requests/month included, $0.30 per million after. Workers Free is not
   supported.
-- **R2 storage** — [$0.015 / GB-month](https://developers.cloudflare.com/r2/pricing/);
+- **R2 storage**: [$0.015 / GB-month](https://developers.cloudflare.com/r2/pricing/);
   egress is free.
 - No per-transform fees. After the first cold transform of each `(url,
   width, quality, format)`, repeat requests serve from R2 with free egress.
-  CPU cost is per distinct variant, not per request — so crawler traffic
+  CPU cost is per distinct variant, not per request, so crawler traffic
   on URLs you've already served doesn't scale costs the way per-transform
   pricing does. Compare to [Vercel image optimization
   pricing](https://vercel.com/docs/image-optimization/limits-and-pricing).
 
 ## Limitations
 
-The decoder is built for the formats Next.js's `<Image>` actually serves —
+The decoder is built for the formats Next.js's `<Image>` actually serves -
 not feature-parity with Sharp. Currently unsupported:
 
-- **CMYK JPEGs** — print colorspace, rare on the web. Re-export as RGB.
-- **16-bit PNG** — uncommon for web; we decode 8-bit only.
-- **BMP, ICO** — design choice, rare on the web.
-- **TIFF, HEIC, RAW (CR2/NEF/ARW/...)** — out of scope; these are professional formats that don't appear in `<Image>` source files.
+- **CMYK JPEGs**: print colorspace, rare on the web. Re-export as RGB.
+- **16-bit PNG**: uncommon for web; we decode 8-bit only.
+- **BMP, ICO**: design choice, rare on the web.
+- **TIFF, HEIC, RAW (CR2/NEF/ARW/...)**: out of scope; these are professional formats that don't appear in `<Image>` source files.
 
 What we *do* handle that the Next.js default also handles: baseline + progressive
 JPEGs, PNGs, WebP (still and animated passthrough), GIF (still and animated
@@ -138,11 +138,11 @@ Full docs at **<https://edgesharp.teamchong.net>**.
 - [How it works](https://edgesharp.teamchong.net/how-it-works/)
 - [Next.js integration](https://edgesharp.teamchong.net/nextjs-integration/)
 - [Configuration](https://edgesharp.teamchong.net/configuration/)
-- [Compatibility](https://edgesharp.teamchong.net/compatibility/) — what's supported vs Next.js's default loader
+- [Compatibility](https://edgesharp.teamchong.net/compatibility/), what's supported vs Next.js's default loader
 - [Deployment](https://edgesharp.teamchong.net/deployment/)
-- [Production hardening](https://edgesharp.teamchong.net/production-hardening/) — what to set before linking the Worker URL publicly
+- [Production hardening](https://edgesharp.teamchong.net/production-hardening/), what to set before linking the Worker URL publicly
 - [Architecture](https://edgesharp.teamchong.net/architecture/)
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+MIT, see [LICENSE](./LICENSE).

@@ -1,6 +1,6 @@
 /// WebP encoding via statically linked libwebp (C).
 /// Calls our tiny C wrapper (webp_advanced.c) which uses libwebp's
-/// WebPConfig/WebPPicture API with method=1 — ~2× faster encode than the
+/// WebPConfig/WebPPicture API with method=1, ~2× faster encode than the
 /// simple `WebPEncodeRGBA` (which is hardcoded to method=4) at ~5-8% larger
 /// output. CDN traffic re-uses cached bytes so the speed win compounds.
 const std = @import("std");
@@ -8,7 +8,7 @@ const mem = @import("memory.zig");
 
 // Encoder method: 0 (fastest) to 6 (slowest, smallest output).
 // libwebp's default in the simple API is 4. We pick 1 for "fast first encode,
-// cache the result forever" — the speed/size cliff between 4 and 1 is mild,
+// cache the result forever", the speed/size cliff between 4 and 1 is mild,
 // the cliff between 1 and 0 is sharper.
 const WEBP_METHOD: c_int = 1;
 
@@ -39,7 +39,7 @@ pub fn encodeWebP(
 ) ?[*]u8 {
     const stride: c_int = @intCast(width * 4);
 
-    // Stack-allocate the WebPMemoryWriter (its size is small — ~32 bytes —
+    // Stack-allocate the WebPMemoryWriter (its size is small, ~32 bytes -
     // and known at runtime via the helper). Zig can't size a stack buffer
     // from a runtime call, so we allocate from our WASM arena instead.
     const writer_size = edgesharp_webp_writer_size();

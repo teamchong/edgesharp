@@ -37,13 +37,13 @@ interface Env {
   CACHE_BUCKET: R2Bucket;
   ORIGIN: string;
   ALLOWED_ORIGINS?: string;
-  // Caller allowlist — comma-separated list of origins/hostnames allowed to
+  // Caller allowlist, comma-separated list of origins/hostnames allowed to
   // call this Worker (matched against the request's Referer header). Unset =
   // anyone can call (demo behavior). Production should set this to your site's
   // origin(s) so the Worker isn't a free image CDN for anyone who guesses the URL.
   ALLOWED_REFERERS?: string;
   // Hard cap on the `?q=` parameter (1-100). Default 100 = no cap. Set to e.g.
-  // 85 to silently clamp expensive q=100 requests — saves CPU and bandwidth.
+  // 85 to silently clamp expensive q=100 requests, saves CPU and bandwidth.
   MAX_QUALITY?: string;
   IMAGE_BACKEND?: string; // "auto" | "wasm" | "cf-images"
   // Comma-separated list of formats to drop. Empty / unset = every format
@@ -57,10 +57,10 @@ interface Env {
   // those source types with 415 instead of returning the bytes unchanged.
   //
   // Examples:
-  //   DISABLED_FORMATS="avif"        — drop AVIF (typical; AVIF encode is
-  //                                    ~3-4× more CPU than WebP)
-  //   DISABLED_FORMATS="svg,gif"     — refuse SVG and animated GIF inputs
-  //   DISABLED_FORMATS="avif,webp"   — JPEG-only output
+  //   DISABLED_FORMATS="avif"       drop AVIF (typical; AVIF encode is
+  //                                  ~3-4× more CPU than WebP)
+  //   DISABLED_FORMATS="svg,gif"    refuse SVG and animated GIF inputs
+  //   DISABLED_FORMATS="avif,webp"  JPEG-only output
   DISABLED_FORMATS?: string;
   IMAGES?: CloudflareImagesBinding; // optional CF Images binding
   ASSETS?: Fetcher; // bundled static assets (demo HTML + sample images)
@@ -162,7 +162,7 @@ export default {
       return new Response("Not Found", { status: 404 });
     }
 
-    // Caller allowlist — only enforced when ALLOWED_REFERERS is set. The
+    // Caller allowlist, only enforced when ALLOWED_REFERERS is set. The
     // check happens before parsing/cache lookup so abusive callers don't
     // even get a 304-fast-path. Same-origin requests (the bundled demo
     // calling its own /_next/image) are always allowed.
@@ -196,7 +196,7 @@ export default {
     const outputFormat = negotiateFormat(accept, backend, !!env.IMAGES, enabled);
     if (outputFormat === null) {
       return new Response(
-        "No supported output format — every format the client accepts is in DISABLED_FORMATS",
+        "No supported output format, every format the client accepts is in DISABLED_FORMATS",
         { status: 415 },
       );
     }
@@ -239,7 +239,7 @@ export default {
     // Same-origin paths (/demo/*, /sample/*, anything bundled) come from
     // the ASSETS binding; remote paths fall through to ORIGIN.
     //
-    // Set a real User-Agent and an Accept: image/* header — Wikimedia
+    // Set a real User-Agent and an Accept: image/* header. Wikimedia
     // Commons, some Cloudinary buckets, and a few CDN-style hosts return
     // 4xx for empty/unrecognized UAs. Without these, perfectly valid image
     // URLs fail with origin-level 404/403 even though they work in any
@@ -261,7 +261,7 @@ export default {
       return new Response("Unsupported image type: " + contentType, { status: 400 });
     }
 
-    // Pre-flight size check — Content-Length is advisory (origin can lie or
+    // Pre-flight size check. Content-Length is advisory (origin can lie or
     // omit it) but when it's present we can reject obvious abuse cases without
     // reading the body. Saves the OOM failure mode for sources we know upfront
     // are too large to decode safely.
@@ -310,7 +310,7 @@ export default {
           ...SECURITY_HEADERS,
         },
       });
-      // Cache passthrough at L1 only — the R2 key includes the negotiated
+      // Cache passthrough at L1 only, the R2 key includes the negotiated
       // output format which won't match the actual passthrough Content-Type.
       ctx.waitUntil(cache.put(cacheRequest, response.clone()));
       return response;
@@ -356,7 +356,7 @@ export default {
       const rgbaHeight = parseInt(rawResponse.headers.get("X-Image-Height") ?? "0", 10);
       const rgba = rawBuf.subarray(8); // skip [w,h] header
 
-      // libavif is statically imported but lazily instantiated — the WASM
+      // libavif is statically imported but lazily instantiated, the WASM
       // module sits idle in memory until the first AVIF request hits this branch.
       const avifEncoder = createAvifEncoder(env);
       const avifBytes = await avifEncoder(rgba, rgbaWidth, rgbaHeight, quality);
@@ -477,7 +477,7 @@ function parseImageParams(params: URLSearchParams, env: Env): ParseResult {
     return { ok: false, error: `Width ${baseWidth} not in allowed sizes` };
   }
 
-  // DPR multiplier (1, 2, 3) — lets HiDPI clients request density-correct variants
+  // DPR multiplier (1, 2, 3), lets HiDPI clients request density-correct variants
   // without changing loader logic. The post-DPR width still has to fit MAX_WIDTH.
   const dprParam = params.get("dpr") ?? "1";
   if (!/^[1-3]$/.test(dprParam)) return { ok: false, error: "DPR must be 1, 2, or 3" };
@@ -490,7 +490,7 @@ function parseImageParams(params: URLSearchParams, env: Env): ParseResult {
   const requestedQuality = parseInt(qParam, 10);
   if (requestedQuality < 1 || requestedQuality > 100) return { ok: false, error: "Quality must be 1-100" };
 
-  // Silently cap to MAX_QUALITY if set. We don't reject — the loader's
+  // Silently cap to MAX_QUALITY if set. We don't reject, the loader's
   // emitted srcSet is generated client-side, and rejecting valid q values
   // would make production deployments fragile. Capping is the friendly path.
   const maxQ = parseMaxQuality(env);
@@ -507,7 +507,7 @@ function parseMaxQuality(env: Env): number {
 }
 
 /**
- * Caller allowlist — checks the request's Referer (and falls back to Origin)
+ * Caller allowlist, checks the request's Referer (and falls back to Origin)
  * against ALLOWED_REFERERS. Returns true when the caller is allowed.
  *
  * Behaviour:
@@ -568,7 +568,7 @@ function getAllowedOrigins(env: Env): string[] {
  * GIF: an animated GIF has at least one Graphics Control Extension (0x21
  * 0xF9) with a Delay Time field in addition to the first frame. Cheaper
  * detection: scan past the first image-descriptor block (0x2C) for a second
- * one — if present, the file has multiple frames.
+ * one, if present, the file has multiple frames.
  *
  * WebP: an animated WebP has a VP8X chunk (offset 12-15 = "VP8X") with the
  * animation flag set in the feature byte (offset 20, bit 1).
@@ -596,7 +596,7 @@ function isAnimatedGif(bytes: Uint8Array): boolean {
   while (i < bytes.length) {
     const b = bytes[i];
     if (b === 0x2C) {
-      // Image descriptor — counts as a frame.
+      // Image descriptor, counts as a frame.
       frameCount++;
       if (frameCount > 1) return true;
       // Skip the 9-byte descriptor + optional local color table + image data.
@@ -613,7 +613,7 @@ function isAnimatedGif(bytes: Uint8Array): boolean {
         if (subSize === 0) break;
       }
     } else if (b === 0x21) {
-      // Extension — skip label + sub-blocks.
+      // Extension, skip label + sub-blocks.
       i += 2;
       while (i < bytes.length) {
         const subSize = bytes[i] ?? 0;
@@ -621,10 +621,10 @@ function isAnimatedGif(bytes: Uint8Array): boolean {
         if (subSize === 0) break;
       }
     } else if (b === 0x3B) {
-      // Trailer — end of file.
+      // Trailer, end of file.
       break;
     } else {
-      // Unrecognized byte — bail rather than parse forever.
+      // Unrecognized byte, bail rather than parse forever.
       break;
     }
   }
@@ -723,7 +723,7 @@ function hashSlot(key: string, poolSize: number): number {
 
 /**
  * Strong validator for the rendered output. Deterministic from the cache
- * key — same params always yield the same etag, so 304 Not Modified can
+ * key, same params always yield the same etag, so 304 Not Modified can
  * skip the body on revalidation.
  */
 function buildEtag(

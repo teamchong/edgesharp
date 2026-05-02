@@ -1,5 +1,5 @@
 /**
- * ImageOptimizer — 3-tier cache with warm DO pool fallback.
+ * ImageOptimizer, 3-tier cache with warm DO pool fallback.
  *
  * L1: Cache API (per-datacenter, free, ~5ms)
  * L2: R2 bucket (persistent, $0.015/GB/mo, ~20ms)
@@ -56,7 +56,7 @@ export class ImageOptimizer {
       return response;
     }
 
-    // L3: Image DO — WASM transform
+    // L3: Image DO. WASM transform
     const result = await this.transformViaPool(sourceKey, opts);
     if (!result) {
       return new Response("Image transform failed", { status: 500 });

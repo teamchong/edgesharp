@@ -51,7 +51,7 @@ export function createLoader(config: LoaderConfig) {
 }
 
 /**
- * Default loader — reads the Worker URL from NEXT_PUBLIC_IMAGEMODE_URL
+ * Default loader, reads the Worker URL from NEXT_PUBLIC_IMAGEMODE_URL
  * environment variable. Falls back to relative URL (same-origin deployment).
  */
 export default function edgesharpLoader({ src, width, quality }: ImageLoaderProps): string {

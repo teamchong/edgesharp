@@ -10,12 +10,12 @@ are outside the envelope.
 
 ## What scales
 
-- **Storage** — R2 has no practical per-bucket cap. Stored output costs
+- **Storage**: R2 has no practical per-bucket cap. Stored output costs
   [$0.015/GB-month](https://developers.cloudflare.com/r2/pricing/);
   egress is free.
-- **Concurrency** — Workers run per-request and stateless on the global edge.
+- **Concurrency**: Workers run per-request and stateless on the global edge.
   No fixed connection cap; CF spreads load across data centers.
-- **Cache hit rate** — repeat requests for the same `(url, width, quality, format)`
+- **Cache hit rate**: repeat requests for the same `(url, width, quality, format)`
   never re-transform; they hit Cache API or R2 in single-digit ms.
 
 ## What doesn't
@@ -34,7 +34,7 @@ edgesharp needs [Workers
 Paid](https://developers.cloudflare.com/workers/platform/pricing/) ($5/month
 per Cloudflare account). Workers Free is not supported: the 10 ms CPU/request
 cap is too tight for cold transforms (a 4K JPEG → AVIF is ~1–2 seconds CPU),
-and Durable Objects — required for the warm WASM pool — are Paid-only.
+and Durable Objects, required for the warm WASM pool, are Paid-only.
 
 ## Practical sweet spot
 
@@ -48,27 +48,27 @@ and Durable Objects — required for the warm WASM pool — are Paid-only.
 
 ## What to do when you hit a limit
 
-- **Source file too large** — pre-process at the origin. Most static-site
+- **Source file too large**: pre-process at the origin. Most static-site
   generators downsize originals before publishing; do that, and edgesharp
   takes a reasonable input.
-- **Source dimensions too large** — same as above, or use
+- **Source dimensions too large**: same as above, or use
   [Cloudflare Images](https://developers.cloudflare.com/images/) for the
   initial downsize. CF Images has higher resource limits as a managed
   service.
-- **CPU exceeded** — Standard usage model (30 s CPU/request) is the default
+- **CPU exceeded**: Standard usage model (30 s CPU/request) is the default
   for new Paid Workers, so a fresh deploy from this repo is already in the
   right place. If you cloned the wrangler config from a much older Worker
   that was on Bundled (50 ms), the simplest fix is to redeploy as a new
   Worker.
-- **Memory exceeded** — almost always means the source is bigger than
+- **Memory exceeded**: almost always means the source is bigger than
   ~4000×4000. Either downsize at origin or set `IMAGE_BACKEND: cf-images`
   for that traffic and let Cloudflare Images handle it.
 
 ## What edgesharp doesn't try to be
 
 - A general image-transformation service (cropping, watermarking, focal-point
-  detection — that's [Cloudflare Images](https://developers.cloudflare.com/images/)).
-- A photo-pipeline backend (RAW processing, color-managed exports — that's
+  detection, that's [Cloudflare Images](https://developers.cloudflare.com/images/)).
+- A photo-pipeline backend (RAW processing, color-managed exports, that's
   Sharp/libvips on a real server).
 - A video transformer (use [Stream](https://developers.cloudflare.com/stream/)).
 

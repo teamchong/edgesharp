@@ -1,7 +1,7 @@
 # edgesharp · Next.js demo
 
-A real Next.js 15 app showing the entire edgesharp integration — one config
-change — and what happens when you swap in a custom loader. The whole site
+A real Next.js 15 app showing the entire edgesharp integration, one config
+change, and what happens when you swap in a custom loader. The whole site
 ships **as bundled assets inside the same Worker** that does the image
 transforms, so one URL serves both the demo and the API.
 
@@ -11,12 +11,12 @@ One file. That's it.
 
 ```
 demo/
-  next.config.mjs        — points images.loaderFile at edgesharp's loader
-  app/page.tsx           — uses next/image as you already do (no change)
+  next.config.mjs       points images.loaderFile at edgesharp's loader
+  app/page.tsx          uses next/image as you already do (no change)
 ```
 
 Why a `node_modules` path? Next.js bundles the loader into the **client** at
-build time, while `next.config.mjs` runs in **Node** — so `loaderFile` has to
+build time, while `next.config.mjs` runs in **Node**: so `loaderFile` has to
 be a path the build process can resolve and bundle separately. You can't
 `import` the loader into your config.
 
@@ -41,7 +41,7 @@ The cold-boot cost over the old 90 KB JPEG/PNG/WebP-only bundle is small
 encoder module is only instantiated on the first AVIF request. Workers that
 never serve AVIF never pay the libavif startup cost.
 
-The libavif WASM was rebuilt from source with size-first emcc flags (`-Oz -flto`, `MinSizeRel`, `CONFIG_AV1_HIGHBITDEPTH=0`) — 1.5 MB instead of jsquash's stock 3.4 MB.
+The libavif WASM was rebuilt from source with size-first emcc flags (`-Oz -flto`, `MinSizeRel`, `CONFIG_AV1_HIGHBITDEPTH=0`), 1.5 MB instead of jsquash's stock 3.4 MB.
 
 ## Local development
 
@@ -63,7 +63,7 @@ Open <http://localhost:8787>. The page, the source images, and the
 ## Deploy
 
 ```bash
-# Single bundle — ~838 KB gzip, libavif included
+# Single bundle, ~838 KB gzip, libavif included
 pnpm run deploy
 ```
 

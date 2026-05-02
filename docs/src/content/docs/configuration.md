@@ -37,9 +37,9 @@ description: All configuration options for edgesharp.
 }
 ```
 
-Native AVIF is bundled into the single Worker entry by default — no extra
+Native AVIF is bundled into the single Worker entry by default, no extra
 config or alternate entry point needed. Set `DISABLED_FORMATS="avif"` in the
-Cloudflare dashboard to drop AVIF from negotiation at runtime — the
+Cloudflare dashboard to drop AVIF from negotiation at runtime, the
 negotiator skips it and picks the next-best format the browser accepts (WebP
 on AVIF-capable browsers). No redeploy required. See
 [Backend modes](/backend-modes/).
@@ -67,7 +67,7 @@ open proxy.
 ```
 
 Use `"*"` to allow any `https://` host. **Only do this for demos or internal
-deployments** — combine with [Cloudflare Rate Limiting](https://developers.cloudflare.com/waf/rate-limiting-rules/),
+deployments**: combine with [Cloudflare Rate Limiting](https://developers.cloudflare.com/waf/rate-limiting-rules/),
 [Bot Management](https://developers.cloudflare.com/bots/), and a tight Worker
 budget alert if the deployment is publicly reachable. The bundled
 `wrangler.json` ships with `"*"` so the demo's "paste any URL" playground
@@ -82,7 +82,7 @@ checklist of what to tighten before publicly linking your Worker URL.
 
 ### `ALLOWED_REFERERS` (optional)
 
-Caller allowlist — `ALLOWED_ORIGINS` controls *what URLs we fetch*;
+Caller allowlist, `ALLOWED_ORIGINS` controls *what URLs we fetch*;
 `ALLOWED_REFERERS` controls *who can call us*. Without it, anyone on the
 internet can hit your Worker URL and you pay the CPU.
 
@@ -94,12 +94,12 @@ internet can hit your Worker URL and you pay the CPU.
 - **Set**: requests with a non-matching `Referer` (or `Origin`) header get
   `403 Forbidden referer`. Same-origin requests (the bundled demo calling its
   own `/_next/image`) are always allowed.
-- **Missing Referer is rejected** when this is set. Strict — leave unset if
+- **Missing Referer is rejected** when this is set. Strict, leave unset if
   your traffic comes through `Referrer-Policy: no-referrer`.
 
 ### `MAX_QUALITY` (optional, default: `"100"`)
 
-Hard cap on the `?q=` parameter. Values above the cap are silently clamped —
+Hard cap on the `?q=` parameter. Values above the cap are silently clamped -
 the loader's emitted `srcSet` keeps working without errors.
 
 ```json
@@ -127,10 +127,10 @@ enabled. Recognized values: `jpeg`, `png`, `webp`, `avif`, `gif`, `svg`.
 
 Two different effects depending on the format:
 
-- **Transformed outputs** (`jpeg`, `png`, `webp`, `avif`) — the negotiator
+- **Transformed outputs** (`jpeg`, `png`, `webp`, `avif`), the negotiator
   skips disabled formats and picks the next-best one the browser accepts.
   If every format the browser accepts is disabled, the Worker returns 415.
-- **Passthrough inputs** (`gif`, `svg`) — animated GIF and SVG bytes are
+- **Passthrough inputs** (`gif`, `svg`), animated GIF and SVG bytes are
   normally returned unchanged with the original Content-Type. Disabling
   rejects those source types with 415 instead.
 
@@ -138,9 +138,9 @@ Set in the Cloudflare dashboard (no redeploy required).
 
 | Disabling | When to do it | What you save |
 |---|---|---|
-| `avif` | You don't want to pay the AVIF encode cost (libavif is ~3-4× more CPU than WebP). The negotiator picks WebP for AVIF-capable browsers, which gets you ~60-80% of AVIF's compression gains. | The biggest CPU/cost win — typically the dominant per-transform expense. |
-| `webp` | You're seeing WebP rendering issues on a specific client, or you want strict-JPEG output for some downstream tool. | A small CPU win — WebP encode is ~5-10× cheaper than AVIF. |
-| `png` | You want to force JPEG even when only PNG is acceptable. Loses transparency support — only safe if you control the input set and know there's no alpha. | Negligible — PNG encode is already cheap. |
+| `avif` | You don't want to pay the AVIF encode cost (libavif is ~3-4× more CPU than WebP). The negotiator picks WebP for AVIF-capable browsers, which gets you ~60-80% of AVIF's compression gains. | The biggest CPU/cost win, typically the dominant per-transform expense. |
+| `webp` | You're seeing WebP rendering issues on a specific client, or you want strict-JPEG output for some downstream tool. | A small CPU win. WebP encode is ~5-10× cheaper than AVIF. |
+| `png` | You want to force JPEG even when only PNG is acceptable. Loses transparency support, only safe if you control the input set and know there's no alpha. | Negligible. PNG encode is already cheap. |
 | `gif` | You don't want to serve animated GIFs (returns 415 for animated sources). | The Worker stops bandwidth-passing-through arbitrarily large GIF bytes. |
 | `svg` | You don't want to serve SVG (returns 415 for `image/svg+xml` sources). | Removes the SVG passthrough surface entirely. |
 
@@ -170,7 +170,7 @@ Examples:
 }
 ```
 
-The typical setting is `DISABLED_FORMATS="avif"` — the WASM stays bundled
+The typical setting is `DISABLED_FORMATS="avif"`: the WASM stays bundled
 (so you can re-enable without a redeploy), the encoder is never
 instantiated, and your CPU bill stays at WebP-tier pricing.
 `DISABLED_FORMATS="svg,gif"` refuses passthrough inputs.
@@ -178,7 +178,7 @@ instantiated, and your CPU bill stays at WebP-tier pricing.
 
 ## Cloudflare Images binding (optional)
 
-The single Worker entry doesn't need the `IMAGES` binding — it handles
+The single Worker entry doesn't need the `IMAGES` binding, it handles
 JPEG/PNG/WebP/AVIF natively. Bind it only if you set `IMAGE_BACKEND: "cf-images"`:
 
 ```json

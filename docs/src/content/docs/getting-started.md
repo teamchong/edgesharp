@@ -66,7 +66,7 @@ curl 'http://localhost:8787/_next/image?url=/demo/photo.jpg&w=640&q=75' \
 ## 4. Deploy
 
 ```bash
-# ~838 KB gzip — JPEG/PNG/WebP via Zig WASM, native AVIF via vendored libavif.
+# ~838 KB gzip. JPEG/PNG/WebP via Zig WASM, native AVIF via vendored libavif.
 # Needs Workers Paid ($5/month per Cloudflare account).
 pnpm run deploy
 ```
@@ -97,4 +97,4 @@ If your Next.js app is on a different origin than the Worker, set
 at build time. See [Next.js integration](/nextjs-integration/) for
 the cross-origin variants.
 
-That's it — every `<Image>` component now goes through edgesharp.
+That's it, every `<Image>` component now goes through edgesharp.

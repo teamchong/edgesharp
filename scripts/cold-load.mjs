@@ -42,7 +42,7 @@ const TEST_IMAGES = [
   "https://picsum.photos/seed/13/3840/2160",
   "https://picsum.photos/seed/14/1200/800",
   "https://picsum.photos/seed/15/2700/1800",
-  // Wikimedia Commons — varies in source format
+  // Wikimedia Commons, varies in source format
   "https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/800px-PNG_transparency_demonstration_1.png",
   "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Eq_it-na_pizza-margherita_sep2005_sml.jpg/1280px-Eq_it-na_pizza-margherita_sep2005_sml.jpg",
 ];

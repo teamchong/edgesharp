@@ -49,7 +49,7 @@ libaom feature flags:
 
 ```
 + -DCONFIG_AV1_HIGHBITDEPTH=0    # we encode 8-bit RGBA only; drops 10/12-bit AV1 code
-+ -DCONFIG_AV1_DECODER=0         # we encode only — JPEG/PNG/WebP decoders live in our Zig WASM
++ -DCONFIG_AV1_DECODER=0         # we encode only. JPEG/PNG/WebP decoders live in our Zig WASM
 + -DCONFIG_MULTITHREAD=0         # Workers run single-threaded; thread/sync code is dead weight
 + -DCONFIG_INSPECTION=0          # debug-only feature
 + -DCONFIG_INTERNAL_STATS=0      # debug-only stats
@@ -69,8 +69,8 @@ libavif CMake flags:
 
 ## What was tried and reverted
 
-`-DCONFIG_REALTIME_ONLY=1` looks attractive — it strips libaom's "good quality"
-and "all intra" encoder paths and saves ~250 KB raw — but **breaks encoding for
+`-DCONFIG_REALTIME_ONLY=1` looks attractive, it strips libaom's "good quality"
+and "all intra" encoder paths and saves ~250 KB raw, but **breaks encoding for
 real images**. libavif uses `AOM_USAGE_GOOD_QUALITY` for stills, which the
 realtime-only build deletes. Don't add this back without also patching libavif's
 encoder usage flag (and accepting realtime mode's lower compression efficiency,

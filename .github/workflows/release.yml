@@ -2,7 +2,7 @@ name: Release
 
 # Auto-publishes the npm loader package when package.json's version changes
 # on main. The git tag (vX.Y.Z) acts as the source of truth for "already
-# released" — if the tag exists, the workflow skips all release jobs. This
+# released", if the tag exists, the workflow skips all release jobs. This
 # means push without bumping = no-op; bump version + push = publish.
 #
 # Aligned with the turboquant-wasm release flow: check-version → publish-npm

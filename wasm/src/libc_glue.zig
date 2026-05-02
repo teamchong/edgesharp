@@ -245,7 +245,7 @@ export fn powf(x: f32, y: f32) f32 {
 }
 export fn expf(x: f32) f32 { return @floatCast(softExp64(@floatCast(x))); }
 
-/// Insertion sort — libwebp uses qsort on palette arrays (<= 256 entries).
+/// Insertion sort, libwebp uses qsort on palette arrays (<= 256 entries).
 export fn qsort(
     base: ?*anyopaque,
     nmemb: usize,

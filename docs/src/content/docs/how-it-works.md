@@ -69,7 +69,7 @@ accepts is disabled, the Worker returns 415. For passthrough inputs
 instead of returning the bytes unchanged.
 
 You can also route every request through Cloudflare Images by setting
-`IMAGE_BACKEND: cf-images` (and binding `IMAGES`) — `DISABLED_FORMATS`
+`IMAGE_BACKEND: cf-images` (and binding `IMAGES`), `DISABLED_FORMATS`
 still applies.
 
 | Accept header | `DISABLED_FORMATS=""` | `DISABLED_FORMATS="avif"` | `DISABLED_FORMATS="avif,webp"` |
@@ -81,19 +81,19 @@ still applies.
 When a transformed format is disabled, the negotiator picks the next-best
 one the browser accepts. AVIF → WebP keeps 60–80% of AVIF's compression
 savings; WebP → JPEG loses more but works everywhere. The bundled WASM
-doesn't shrink — encoders simply aren't instantiated when their format is
+doesn't shrink, encoders simply aren't instantiated when their format is
 disabled, so flipping the switch costs nothing on cold start either.
 
 ## Security
 
 Every response includes:
 
-- `Cache-Control: public, max-age=31536000, immutable` — 1-year cache, URL encodes all params
-- `Vary: Accept` — CDN caches per Accept header
-- `ETag: "<hash>"` — strong validator derived from `(imageUrl, w, q, format)`; supports `If-None-Match` → 304
-- `X-Content-Type-Options: nosniff` — prevents MIME sniffing
-- `Content-Security-Policy: script-src 'none'; frame-src 'none'; sandbox;` — blocks XSS via image
-- `Content-Disposition: inline` — prevents download prompts
+- `Cache-Control: public, max-age=31536000, immutable`: 1-year cache, URL encodes all params
+- `Vary: Accept`: CDN caches per Accept header
+- `ETag: "<hash>"`: strong validator derived from `(imageUrl, w, q, format)`; supports `If-None-Match` → 304
+- `X-Content-Type-Options: nosniff`: prevents MIME sniffing
+- `Content-Security-Policy: script-src 'none'; frame-src 'none'; sandbox;`: blocks XSS via image
+- `Content-Disposition: inline`: prevents download prompts
 
 Input URLs are validated:
 

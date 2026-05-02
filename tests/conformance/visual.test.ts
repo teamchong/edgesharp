@@ -1,5 +1,5 @@
 /**
- * Visual conformance tests — verify edgesharp WASM output matches Sharp
+ * Visual conformance tests, verify edgesharp WASM output matches Sharp
  * (what Vercel/Next.js uses) within acceptable thresholds.
  *
  * Uses Sharp as the reference implementation and compares outputs using
@@ -83,7 +83,7 @@ describe("JPEG decode + resize parity", () => {
 });
 
 describe("PNG decode + resize parity", () => {
-  // Source icon is 512px — only test widths smaller than source to match
+  // Source icon is 512px, only test widths smaller than source to match
   // Sharp's withoutEnlargement behavior
   for (const targetWidth of [64, 256, 384]) {
     it(`resizes PNG to ${targetWidth}px matching Sharp Lanczos3`, async () => {
@@ -284,7 +284,7 @@ async function decodeWithSharp(
 /**
  * Calculate PSNR between two RGBA buffers, weighted by alpha.
  * Fully transparent pixels (alpha=0) are skipped since their RGB
- * values are visually meaningless — different renderers produce
+ * values are visually meaningless, different renderers produce
  * different RGB values for alpha=0 pixels, which would tank PSNR
  * even though the images look identical.
  */

@@ -411,7 +411,7 @@ fn encodeJpeg(rgba: []const u8, width: u32, height: u32, quality: u8) ?[*]u8 {
         0x00, 0x3F, 0x00,
     });
 
-    // Encode MCUs — 4:4:4 YCbCr (full chroma resolution, no subsampling)
+    // Encode MCUs, 4:4:4 YCbCr (full chroma resolution, no subsampling)
     var dc_y: i32 = 0;
     var dc_cb: i32 = 0;
     var dc_cr: i32 = 0;

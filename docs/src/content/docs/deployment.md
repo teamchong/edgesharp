@@ -24,7 +24,7 @@ Free is not supported (10 ms CPU/request, no Durable Objects). AVIF is on
 by default. The cold-boot cost over the old 90 KB JPEG/PNG/WebP-only bundle
 is
 small (~15–40 ms): wrangler precompiles the libavif WASM at deploy time, and
-the encoder is only instantiated on the first AVIF request — Workers that
+the encoder is only instantiated on the first AVIF request. Workers that
 never serve AVIF never pay the libavif startup cost.
 
 ## `DISABLED_FORMATS` without redeploying
@@ -42,17 +42,17 @@ types with 415 instead of returning the bytes unchanged.
 
 Typical settings:
 
-- `DISABLED_FORMATS="avif"` — drop AVIF first when CPU costs creep. AVIF
+- `DISABLED_FORMATS="avif"`: drop AVIF first when CPU costs creep. AVIF
   encode is ~3–4× more CPU than WebP; the negotiator picks WebP, which
   keeps 60–80% of AVIF's compression savings.
-- `DISABLED_FORMATS="svg,gif"` — refuse SVG and animated GIF inputs.
-- `DISABLED_FORMATS="avif,webp"` — JPEG-only output.
-- `DISABLED_FORMATS="webp"` — forces JPEG output, useful when a downstream
+- `DISABLED_FORMATS="svg,gif"`: refuse SVG and animated GIF inputs.
+- `DISABLED_FORMATS="avif,webp"`: JPEG-only output.
+- `DISABLED_FORMATS="webp"`: forces JPEG output, useful when a downstream
   tool can't read WebP.
-- `DISABLED_FORMATS="png"` — forces JPEG even when only PNG is acceptable;
+- `DISABLED_FORMATS="png"`: forces JPEG even when only PNG is acceptable;
   loses transparency.
 
-The bundled WASM doesn't shrink either way — encoders simply aren't
+The bundled WASM doesn't shrink either way, encoders simply aren't
 instantiated when their format is disabled, so changing the list costs
 nothing on cold start.
 
@@ -83,13 +83,13 @@ This evicts cached output after 30 days; misses re-run the WASM transform.
 
 Three layers, three ways to clear:
 
-**L1 — Cloudflare Cache API.** Per-datacenter, transparent, evicts under
+**L1. Cloudflare Cache API.** Per-datacenter, transparent, evicts under
 memory pressure. Not directly purgeable from outside the Worker. Two ways
 to invalidate: bump the cache-key version (a code change that adds a
 version segment to `buildCacheKey`), or purge via [CF dashboard → Caching
 → Purge Everything](https://developers.cloudflare.com/cache/how-to/purge-cache/).
 
-**L2 — R2 bucket.** Direct control via `wrangler`:
+**L2. R2 bucket.** Direct control via `wrangler`:
 
 ```bash
 # List cached objects
@@ -111,7 +111,7 @@ npx wrangler r2 bucket create edgesharp-cache
 You can also clear via the Cloudflare dashboard: **R2 → edgesharp-cache →
 Objects → select → Delete**.
 
-**L3 — Source bytes from origin.** Not edgesharp's cache; if you change
+**L3. Source bytes from origin.** Not edgesharp's cache; if you change
 `/photo.jpg` at the origin, edgesharp will keep serving the cached transform
 until L1 + L2 both evict (or you delete the R2 keys above). Bumping the URL
 (`/photo.jpg?v=2`) is the cheapest cache-bust on the caller side.

@@ -8,7 +8,7 @@
  *
  * Cloudflare Workers disallow `WebAssembly.compile(bytes)` at runtime, so the
  * WASM must be a static `import` that wrangler compiles at deploy time. The
- * Emscripten glue (`avif_enc.js`) is also vendored alongside — they're built
+ * Emscripten glue (`avif_enc.js`) is also vendored alongside, they're built
  * as a pair and aren't interchangeable with upstream jsquash artefacts.
  *
  * This module is always bundled into `src/worker.ts`. The static import below
@@ -19,9 +19,9 @@
  * Cloudflare dashboard) drops AVIF from negotiation at runtime without
  * redeploying.
  */
-// @ts-expect-error — wasm import resolved by wrangler's CompiledWasm rule
+// @ts-expect-error, wasm import resolved by wrangler's CompiledWasm rule
 import avifEncWasm from "../wasm/vendor/avif_enc/avif_enc.wasm";
-// @ts-expect-error — emscripten glue, no .d.ts; we use a single bound API
+// @ts-expect-error, emscripten glue, no .d.ts; we use a single bound API
 import avifEncFactory from "../wasm/vendor/avif_enc/avif_enc.js";
 
 type AvifEncoderFn = (
@@ -69,7 +69,7 @@ export function createAvifEncoder(_env: unknown): AvifEncoderFn {
       denoiseLevel: 0,
       tileColsLog2: 0,
       tileRowsLog2: 0,
-      // Speed 8 — encodes ~3× faster than libavif's default 6 at the cost of
+      // Speed 8, encodes ~3× faster than libavif's default 6 at the cost of
       // ~3-6% larger files and ~1 dB PSNR. For "encode once, serve forever
       // from cache" this is the right tradeoff: the CPU bill is paid on the
       // first request per (image, w, q, format) and amortized over every cache

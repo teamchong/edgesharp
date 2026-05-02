@@ -49,7 +49,7 @@ These are Next.js component-level features. edgesharp only changes the
 
 | Feature | Next.js default | edgesharp | Notes |
 |---|---|---|---|
-| `srcSet` generation from `deviceSizes` / `imageSizes` | ✓ | ✓ | Identical — same defaults. |
+| `srcSet` generation from `deviceSizes` / `imageSizes` | ✓ | ✓ | Identical, same defaults. |
 | `sizes` attribute for responsive images | ✓ | ✓ | |
 | `priority` / `loading="eager"` | ✓ | ✓ | |
 | Lazy loading | ✓ | ✓ | |
@@ -81,7 +81,7 @@ equivalent first-class flags.
 
 | Control | Next.js / Vercel | edgesharp | Notes |
 |---|---|---|---|
-| URL allowlist for upstream image hosts | `images.remotePatterns` | `ALLOWED_ORIGINS` | edgesharp accepts `"*"` as well — useful for demos, not for production. |
+| URL allowlist for upstream image hosts | `images.remotePatterns` | `ALLOWED_ORIGINS` | edgesharp accepts `"*"` as well, useful for demos, not for production. |
 | Caller allowlist (Referer / Origin) | ✗ | `ALLOWED_REFERERS` | Stops other sites hotlinking your Worker. |
 | Hard cap on `?q=` | ✗ | `MAX_QUALITY` | Cost protection against expensive `q=100` requests. |
 | Format kill switch | ✗ | `DISABLED_FORMATS` (CSV: `jpeg`, `png`, `webp`, `avif`, `gif`, `svg`) | Drop transformed outputs (negotiator picks next-best the browser accepts) or passthrough inputs (Worker returns 415). |
@@ -111,7 +111,7 @@ equivalent first-class flags.
 - **Latency comparison.** Neither party publishes a latency SLO for image
   optimization, and synthetic benchmarks on `wrangler dev` don't reflect edge
   network behavior. The numbers in [Performance](/performance/) are
-  local-machine measurements — directional, not a SLO.
+  local-machine measurements, directional, not a SLO.
 - **Quality / compression ratio.** Visual conformance against Sharp passes at
   PSNR ≥ 30 dB (visually indistinguishable). Output file sizes vary 0–10%
   vs Sharp depending on format and content. See

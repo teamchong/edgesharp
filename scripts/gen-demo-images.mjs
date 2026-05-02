@@ -1,9 +1,9 @@
 // Deterministic demo source generator. Outputs to demo/public/demo/.
 //
-//   photo.jpg     — 2000×1500, busy multi-color composition (typical web photo)
-//   photo-4k.jpg  — 4000×3000, same kind of content at 4K (large source)
-//   ui.png        — 1280× 800, flat UI mock with hard edges (screenshot-like)
-//   portrait.jpg  — 2000×1500 stored with EXIF orientation=6 (auto-rotate test)
+//   photo.jpg     2000×1500  busy multi-color composition (typical web photo)
+//   photo-4k.jpg  4000×3000  same kind of content at 4K (large source)
+//   ui.png        1280× 800  flat UI mock with hard edges (screenshot-like)
+//   portrait.jpg  2000×1500  stored with EXIF orientation=6 (auto-rotate test)
 //
 // Run from repo root: `node scripts/gen-demo-images.mjs`
 import sharp from "sharp";

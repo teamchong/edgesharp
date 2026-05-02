@@ -9,7 +9,7 @@ edgesharp is tested at three levels to ensure parity with Next.js image optimiza
 
 ### 1. Visual conformance (vs Sharp)
 
-Every resize operation is compared pixel-for-pixel against Sharp (the engine Vercel/Next.js uses). Tests use PSNR (Peak Signal-to-Noise Ratio) with a threshold of 30 dB — below which differences become visible.
+Every resize operation is compared pixel-for-pixel against Sharp (the engine Vercel/Next.js uses). Tests use PSNR (Peak Signal-to-Noise Ratio) with a threshold of 30 dB, below which differences become visible.
 
 **What's tested:**
 - JPEG decode + Lanczos3 resize at multiple widths (320, 640, 1080px)
@@ -19,7 +19,7 @@ Every resize operation is compared pixel-for-pixel against Sharp (the engine Ver
 - Edge cases: 1×1 pixel, panorama (10:1), portrait (1:10), grayscale, transparency
 - PNG compression ratio within 2x of Sharp
 
-**Alpha handling:** PSNR is weighted by alpha channel. Fully transparent pixels are skipped since their RGB values are meaningless — different renderers produce different RGB for alpha=0 pixels.
+**Alpha handling:** PSNR is weighted by alpha channel. Fully transparent pixels are skipped since their RGB values are meaningless, different renderers produce different RGB for alpha=0 pixels.
 
 ### 2. Protocol conformance (vs Next.js)
 
@@ -73,8 +73,8 @@ IMAGEMODE_TEST_URL=http://localhost:8788 npx vitest run tests/conformance/protoc
 
 The conformance suite caught and helped fix three significant bugs during development:
 
-1. **JPEG IDCT scaling** — custom integer IDCT had wrong constants (PSNR was 12 dB, should be >= 30). Fixed by replacing with reference floating-point IDCT.
+1. **JPEG IDCT scaling**: custom integer IDCT had wrong constants (PSNR was 12 dB, should be >= 30). Fixed by replacing with reference floating-point IDCT.
 
-2. **Alpha premultiplication** — resize without premultiplied alpha caused color fringing at transparent edges (PSNR 13 dB on icons). Fixed by premultiplying before resize, unpremultiplying after.
+2. **Alpha premultiplication**: resize without premultiplied alpha caused color fringing at transparent edges (PSNR 13 dB on icons). Fixed by premultiplying before resize, unpremultiplying after.
 
-3. **PNG compression** — Zig's stdlib `flate.Compress` was incomplete when this codebase was first written. Fixed by statically linking miniz (public domain C library); kept on Zig 0.16 for consistent output and smaller binary.
+3. **PNG compression**: Zig's stdlib `flate.Compress` was incomplete when this codebase was first written. Fixed by statically linking miniz (public domain C library); kept on Zig 0.16 for consistent output and smaller binary.

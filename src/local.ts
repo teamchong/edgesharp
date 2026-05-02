@@ -1,5 +1,5 @@
 /**
- * edgesharp/local — Sharp-based image optimization for Node.js / local dev.
+ * edgesharp/local. Sharp-based image optimization for Node.js / local dev.
  *
  * Uses native libvips via Sharp (same engine as Vercel).
  * Identical API surface to the Workers optimizer, but runs locally
@@ -50,7 +50,7 @@ export class LocalImageOptimizer {
       await stat(cachePath);
       return { path: cachePath, contentType: MIME[opts.format] };
     } catch {
-      // Cache miss — transform below
+      // Cache miss, transform below
     }
 
     const sharp = await this.getSharp();
@@ -138,7 +138,7 @@ export class LocalImageOptimizer {
     return `${hash}/w${opts.width}_q${opts.quality}.${EXT[opts.format]}`;
   }
 
-  /** Lazily load sharp — it's an optional peer dependency. */
+  /** Lazily load sharp, it's an optional peer dependency. */
   private async getSharp(): Promise<typeof import("sharp")> {
     if (this.sharpModule) return this.sharpModule;
     const require = createRequire(import.meta.url);

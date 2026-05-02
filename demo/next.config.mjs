@@ -6,7 +6,7 @@
 //   3. (in that file) export { default } from 'edgesharp/loader'
 //
 // Static export (output: 'export') so the entire demo can ship as part of
-// the Worker's bundled assets — one Worker URL serves both the demo and the
+// the Worker's bundled assets, one Worker URL serves both the demo and the
 // /_next/image API.
 
 /** @type {import('next').NextConfig} */

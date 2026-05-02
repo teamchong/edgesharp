@@ -71,7 +71,7 @@ export fn image_decode_resize(
     const dec_height = std.mem.readInt(u32, decoded[4..8], .little);
     const pixels = decoded + 8;
 
-    // Clamp output to source width — never upscale. Upscaling produces blurry
+    // Clamp output to source width, never upscale. Upscaling produces blurry
     // output AND eats memory: 3840×2880 RGBA is 44 MB, plus the encoder's
     // working set, easily pushes the Workers 128 MB isolate cap. Standard
     // image-CDN behavior.
@@ -103,7 +103,7 @@ export fn image_transform(
     const dec_height = std.mem.readInt(u32, decoded[4..8], .little);
     const pixels = decoded + 8;
 
-    // Clamp output to source width — never upscale. Avoids blurry output and
+    // Clamp output to source width, never upscale. Avoids blurry output and
     // keeps the resize+encode working set inside Workers' 128 MB isolate cap.
     const clamped_dst_width = if (dst_width == 0 or dst_width > dec_width) dec_width else dst_width;
     const dst_height: u32 = @intCast(@as(u64, dec_height) * clamped_dst_width / dec_width);

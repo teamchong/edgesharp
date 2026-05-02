@@ -1,5 +1,5 @@
 /**
- * Image Durable Object — holds a warm Zig WASM instance for image transforms.
+ * Image Durable Object, holds a warm Zig WASM instance for image transforms.
  *
  * Deterministically named (img-slot-{N}) so V8 TurboFan has time to
  * optimize the WASM SIMD code after first invocation. Subsequent
@@ -9,7 +9,7 @@
  *   X-Output-Format: 0|1|2  → JPEG / PNG / WebP encoded bytes
  *   X-Output-Mode: rgba     → resized RGBA bytes for the AVIF encoder upstream
  */
-// @ts-expect-error — .wasm import resolved by wrangler bundler
+// @ts-expect-error, .wasm import resolved by wrangler bundler
 import wasmModule from "./wasm/edgesharp.wasm";
 
 interface WasmExports {

@@ -94,7 +94,7 @@ const BitReader = struct {
                     self.pos += 1; // byte-stuffed FF00 → FF
                     return 0xFF;
                 }
-                // Marker found — stop
+                // Marker found, stop
                 return null;
             }
             return b;
@@ -233,7 +233,7 @@ fn decodeBlock(
 
 /// 8×8 separable IDCT in f32. The DC-only branch handles the common case
 /// where AC coefficients quantize to zero: IDCT of a DC-only vector is
-/// the scalar (DC * c0/2) broadcast to all 8 outputs — that's the closed
+/// the scalar (DC * c0/2) broadcast to all 8 outputs, that's the closed
 /// form, not an approximation.
 const cos_table_f32 = blk: {
     @setEvalBranchQuota(10_000);
@@ -417,7 +417,7 @@ fn applyOrientation(out: []u8, orientation: u8) ?void {
 
 /// Scan markers for SOF2 (progressive JPEG). Returns true on the first SOF2
 /// found; returns false on any other SOF (SOF0/1/3/...) or unparseable input.
-/// We don't need to fully parse the file here — just walk the marker chain
+/// We don't need to fully parse the file here, just walk the marker chain
 /// until we hit any SOF, since SOFn always precedes SOS.
 fn jpegIsProgressive(src: []const u8) bool {
     if (src.len < 4 or src[0] != 0xFF or src[1] != 0xD8) return false;
@@ -427,7 +427,7 @@ fn jpegIsProgressive(src: []const u8) bool {
         const marker = src[pos + 1];
         pos += 2;
         if (marker == 0xFF or marker == 0x00 or marker == 0x01) continue;
-        if (marker == 0xD9) return false; // EOI before SOF — malformed, let baseline path return null.
+        if (marker == 0xD9) return false; // EOI before SOF, malformed, let baseline path return null.
         if (marker >= 0xD0 and marker <= 0xD7) continue; // RST has no length
         // SOFn = 0xC0..0xCF except 0xC4 (DHT) and 0xC8 (reserved).
         if (marker >= 0xC0 and marker <= 0xCF and marker != 0xC4 and marker != 0xC8) {
@@ -501,7 +501,7 @@ pub fn decode(src: []const u8) ?[*]u8 {
         const seg = src[pos + 2 .. pos + seg_len];
 
         switch (marker) {
-            0xC0 => { // SOF0 — baseline DCT
+            0xC0 => { // SOF0, baseline DCT
                 if (seg.len < 6) return null;
                 if (seg[0] != 8) return null; // 8-bit only
                 state.height = std.mem.readInt(u16, seg[1..3], .big);
@@ -522,7 +522,7 @@ pub fn decode(src: []const u8) ?[*]u8 {
                         state.max_v_samp = state.components[i].v_samp;
                 }
             },
-            0xC4 => { // DHT — Huffman table
+            0xC4 => { // DHT. Huffman table
                 var dht_pos: usize = 0;
                 while (dht_pos < seg.len) {
                     const info = seg[dht_pos];
@@ -550,7 +550,7 @@ pub fn decode(src: []const u8) ?[*]u8 {
                     }
                 }
             },
-            0xDB => { // DQT — quantization table
+            0xDB => { // DQT, quantization table
                 var dqt_pos: usize = 0;
                 while (dqt_pos < seg.len) {
                     const info = seg[dqt_pos];
@@ -570,7 +570,7 @@ pub fn decode(src: []const u8) ?[*]u8 {
                     }
                 }
             },
-            0xDA => { // SOS — start of scan
+            0xDA => { // SOS, start of scan
                 if (seg.len < 1) return null;
                 const ns = seg[0];
                 if (seg.len < 1 + @as(usize, ns) * 2 + 3) return null;
@@ -601,7 +601,7 @@ pub fn decode(src: []const u8) ?[*]u8 {
                 }
                 scan_data_end = sp;
             },
-            0xE1 => { // APP1 — usually Exif
+            0xE1 => { // APP1, usually Exif
                 state.orientation = parseExifOrientation(seg);
             },
             else => {}, // Skip other APP, COM, etc.

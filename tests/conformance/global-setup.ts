@@ -17,7 +17,7 @@ const projectRoot = join(__dirname, "../..");
 let originServer: ChildProcess;
 let wranglerDev: ChildProcess;
 
-// Default 60s — CI runners spawn wrangler dev meaningfully slower than local
+// Default 60s. CI runners spawn wrangler dev meaningfully slower than local
 // (cold node, no pnpm cache, miniflare bootstrapping). Local runs hit the
 // "Ready on" line in 1-3s; CI takes 15-30s on a cold runner.
 async function waitForPort(port: number, timeoutMs = 60000): Promise<void> {

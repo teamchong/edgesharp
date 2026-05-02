@@ -6,7 +6,7 @@
 ///
 /// Optimizations:
 ///   - Lanczos weight tables precomputed once per pass (was: per row/column).
-///     Eliminates ~99% of sin() calls — weights only depend on output index + ratio.
+///     Eliminates ~99% of sin() calls, weights only depend on output index + ratio.
 ///   - Relaxed FMA (f32x4.relaxed_madd) for the convolution multiply-accumulate.
 ///   - Integer-math premultiply/unpremultiply (no float, no @round).
 const std = @import("std");

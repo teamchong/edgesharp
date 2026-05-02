@@ -1,5 +1,5 @@
 /**
- * Pure WASM microbenchmark — invokes image_transform directly, no wrangler/network.
+ * Pure WASM microbenchmark, invokes image_transform directly, no wrangler/network.
  * Captures the algorithm time without workerd's JIT/cache effects.
  */
 import { readFileSync } from "node:fs";
@@ -52,14 +52,14 @@ function bench(name, srcBytes, width, format, quality, iters) {
 
 console.log("Pure WASM compute benchmark (no network, no workerd)");
 console.log("=====================================================\n");
-console.log("JPEG photo 2000×1500 (346 KB) — decode + resize + encode JPEG q=75:");
+console.log("JPEG photo 2000×1500 (346 KB), decode + resize + encode JPEG q=75:");
 bench("→ 320px",  photoBytes, 320,  0, 75, 10);
 bench("→ 640px",  photoBytes, 640,  0, 75, 10);
 bench("→ 1080px", photoBytes, 1080, 0, 75, 10);
 bench("→ 1920px", photoBytes, 1920, 0, 75, 5);
 bench("→ 3840px", photoBytes, 3840, 0, 75, 3);
 
-console.log("\nPNG icon 512×512 — decode + resize + encode PNG:");
+console.log("\nPNG icon 512×512, decode + resize + encode PNG:");
 bench("→ 64px",   iconBytes, 64,  1, 80, 10);
 bench("→ 256px",  iconBytes, 256, 1, 80, 10);
 bench("→ 384px",  iconBytes, 384, 1, 80, 10);
