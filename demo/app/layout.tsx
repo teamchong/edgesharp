@@ -13,6 +13,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className="min-h-screen bg-neutral-950 text-neutral-100 font-sans antialiased">
         {children}
+        <script
+          defer
+          src="https://static.cloudflareinsights.com/beacon.min.js"
+          data-cf-beacon='{"token": "3a5b865568b24718b7d8f62803f332fd"}'
+        />
       </body>
     </html>
   );

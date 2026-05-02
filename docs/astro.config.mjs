@@ -7,6 +7,16 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "edgesharp",
+      head: [
+        {
+          tag: "script",
+          attrs: {
+            defer: true,
+            src: "https://static.cloudflareinsights.com/beacon.min.js",
+            "data-cf-beacon": '{"token": "3a5b865568b24718b7d8f62803f332fd"}',
+          },
+        },
+      ],
       social: [
         {
           icon: "github",
