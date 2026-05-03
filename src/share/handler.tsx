@@ -1,17 +1,14 @@
 /**
- * edgesharp-share Worker entry.
+ * Share-card route handler.
  *
- * Generates social share cards (OpenGraph, Twitter, etc.) from a source URL.
+ * Mounted on /card and /og by the main Worker. Fetches the source page,
+ * extracts <head> metadata, renders a JSX template via Satori, rasterizes
+ * to PNG via Resvg WASM, caches in R2 + Cache API.
  *
  *   GET /card?url=<source>&p=<platform>&template=<name>&[overrides]
  *
- * Flow:
- *   1. Validate the source URL against ALLOWED_ORIGINS, reject loops back to
- *      this Worker.
- *   2. Cache lookup (Cache API → R2). Hit returns immediately.
- *   3. Fetch the source URL, parse <head> metadata.
- *   4. Render JSX template via Satori, rasterize to PNG via Resvg.
- *   5. Write to R2 + Cache API, return the PNG.
+ * Cache key uses the prefix `share-v1/` so the share cache is keyspace-
+ * separate from the image proxy's `v1/` keys but shares the same bucket.
  */
 
 import { extractMetadata, emptyMetadata, type PageMetadata } from "./metadata.js";
@@ -19,7 +16,7 @@ import { resolvePlatform } from "./platforms.js";
 import { resolveTemplate } from "./templates/registry.js";
 import { renderCard } from "./render.js";
 
-interface Env {
+export interface ShareEnv {
   CACHE_BUCKET: R2Bucket;
   ALLOWED_ORIGINS?: string;
   DEFAULT_ACCENT?: string;
@@ -36,26 +33,11 @@ const FETCH_USER_AGENT =
 const SECURITY_HEADERS = {
   "X-Content-Type-Options": "nosniff",
   "Content-Security-Policy": "script-src 'none'; frame-src 'none'; sandbox;",
-  // Allow the playground demo (and any other site) to fetch the rendered
-  // PNG via JavaScript. The output is identical to what an `<img>` tag
-  // would receive, so opening it to JS adds no attack surface.
-  "Access-Control-Allow-Origin": "*",
 } as const;
 
-export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const url = new URL(request.url);
-
-    if (url.pathname === "/" || url.pathname === "/card" || url.pathname === "/og") {
-      return handleCard(request, env, ctx, url);
-    }
-    return new Response("Not Found", { status: 404 });
-  },
-};
-
-async function handleCard(
+export async function handleShareCard(
   request: Request,
-  env: Env,
+  env: ShareEnv,
   ctx: ExecutionContext,
   url: URL,
 ): Promise<Response> {
@@ -111,7 +93,7 @@ async function handleCard(
   const cached = await cache.match(cacheRequest);
   if (cached) return cached;
 
-  const r2Key = `v1/${encodeURIComponent(cacheKey)}.png`;
+  const r2Key = `share-v1/${fnv1a(cacheKey)}.png`;
   const r2Object = await env.CACHE_BUCKET.get(r2Key);
   if (r2Object) {
     const response = new Response(r2Object.body, {
@@ -174,7 +156,7 @@ function mergeProps(
   metadata: PageMetadata,
   sourceUrl: URL,
   overrides: Overrides,
-  env: Env,
+  env: ShareEnv,
 ) {
   const title = overrides.title ?? metadata.title ?? sourceUrl.hostname;
   const description = overrides.description ?? metadata.description ?? "";
@@ -196,34 +178,34 @@ async function fetchPageMetadata(sourceUrl: URL): Promise<PageMetadata> {
     });
     if (!response.ok) {
       console.error(
-        `edgesharp-share fetch-fail url=${JSON.stringify(sourceUrl.toString())} status=${response.status}`,
+        `edgesharp share fetch-fail url=${JSON.stringify(sourceUrl.toString())} status=${response.status}`,
       );
       return emptyMetadata();
     }
     const sizeHeader = response.headers.get("Content-Length");
     if (sizeHeader && parseInt(sizeHeader, 10) > MAX_HTML_BYTES) {
       console.error(
-        `edgesharp-share fetch-too-large url=${JSON.stringify(sourceUrl.toString())} size=${sizeHeader}`,
+        `edgesharp share fetch-too-large url=${JSON.stringify(sourceUrl.toString())} size=${sizeHeader}`,
       );
       return emptyMetadata();
     }
     const html = await response.text();
     if (html.length > MAX_HTML_BYTES) {
       console.error(
-        `edgesharp-share parse-too-large url=${JSON.stringify(sourceUrl.toString())} size=${html.length}`,
+        `edgesharp share parse-too-large url=${JSON.stringify(sourceUrl.toString())} size=${html.length}`,
       );
       return emptyMetadata();
     }
     return extractMetadata(html);
   } catch (err) {
     console.error(
-      `edgesharp-share fetch-throw url=${JSON.stringify(sourceUrl.toString())} err=${err instanceof Error ? err.message : String(err)}`,
+      `edgesharp share fetch-throw url=${JSON.stringify(sourceUrl.toString())} err=${err instanceof Error ? err.message : String(err)}`,
     );
     return emptyMetadata();
   }
 }
 
-function isOriginAllowed(env: Env, sourceUrl: URL): boolean {
+function isOriginAllowed(env: ShareEnv, sourceUrl: URL): boolean {
   const allowed = (env.ALLOWED_ORIGINS ?? "*")
     .split(",")
     .map((s) => s.trim())
@@ -258,7 +240,7 @@ function buildCacheKey(
     overrides.foreground ?? "",
     overrides.siteName ?? "",
   ].join("|");
-  return `${workerOrigin}/cache/${fnv1a(parts)}`;
+  return `${workerOrigin}/share-cache/${fnv1a(parts)}`;
 }
 
 function fnv1a(s: string): string {

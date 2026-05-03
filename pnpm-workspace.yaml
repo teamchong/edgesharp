@@ -2,4 +2,3 @@ packages:
   - "."
   - "demo"
   - "docs"
-  - "share"

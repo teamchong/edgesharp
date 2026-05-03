@@ -15,8 +15,9 @@ const SAMPLE_URLS = [
   "https://github.com/teamchong/edgesharp",
 ];
 
-const SHARE_BASE =
-  process.env.NEXT_PUBLIC_SHARE_URL?.replace(/\/$/, "") ?? "http://localhost:8788";
+// Same-origin: the share routes (/card, /og) live on the same Worker that
+// serves this demo, so a relative URL works for both local dev and production.
+const SHARE_BASE = "";
 
 interface FormState {
   url: string;

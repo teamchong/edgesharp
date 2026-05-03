@@ -18,6 +18,7 @@
  */
 import { ImageDO } from "./image-do.js";
 import { createAvifEncoder } from "./avif.js";
+import { handleShareCard } from "./share/handler.js";
 
 export { ImageDO };
 
@@ -64,6 +65,11 @@ interface Env {
   DISABLED_FORMATS?: string;
   IMAGES?: CloudflareImagesBinding; // optional CF Images binding
   ASSETS?: Fetcher; // bundled static assets (demo HTML + sample images)
+  // Share-card defaults (read by src/share/handler.tsx for /card and /og).
+  DEFAULT_ACCENT?: string;
+  DEFAULT_BG?: string;
+  DEFAULT_FG?: string;
+  SITE_NAME?: string;
 }
 
 interface FormatsEnabled {
@@ -176,6 +182,12 @@ const FORMAT_EXT: Record<OutputFormat, string> = {
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+
+    // Share-card generation: /card and /og both render OG/Twitter/etc.
+    // PNG cards from a source URL. Lives in src/share/handler.tsx.
+    if (url.pathname === "/card" || url.pathname === "/og") {
+      return handleShareCard(request, env, ctx, url);
+    }
 
     if (url.pathname !== "/_next/image") {
       // Single-Worker deploy: every other path is served by the bundled

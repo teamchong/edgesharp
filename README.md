@@ -131,20 +131,21 @@ passthrough), AVIF, SVG (passthrough with restrictive CSP). See
 [Compatibility](https://edgesharp.teamchong.net/compatibility/) for the
 full side-by-side.
 
-## Companion Worker: edgesharp-share
+## Also: social share image generation
 
-The same repo includes [`share/`](./share/), a separate Worker that
-generates social share images (OpenGraph, Twitter, etc.) from a meta
-tag. Independent deploy, independent bundle (~1.6 MB gzip), independent
-R2 bucket. Same `$5/mo Workers Paid per-account` covers both.
+The same Worker also serves `/card?url=...` and `/og?url=...` for
+generating OpenGraph / Twitter / square share PNGs from any source URL.
+Point a `<meta>` tag at it and any site (no SDK, no Next.js) gets share
+cards rendered via Satori + Resvg WASM, cached in R2 forever.
 
 ```html
-<meta property="og:image" content="https://share.example.com/card?url=https://mysite.com/post">
+<meta property="og:image" content="https://your-worker.workers.dev/card?url=https://mysite.com/post">
 ```
 
-[![Deploy edgesharp-share to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/teamchong/edgesharp/tree/main/share)
-
-See [`share/README.md`](./share/README.md) for usage and customization.
+Try it on the playground's [Share cards
+tab](https://playground.edgesharp.teamchong.net/share/). Templates live in
+[`src/share/templates/`](./src/share/templates/) — fork and edit the JSX
+to customize.
 
 ## Documentation
 

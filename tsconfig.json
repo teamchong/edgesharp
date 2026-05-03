@@ -12,7 +12,9 @@
     "declaration": true,
     "outDir": "dist",
     "rootDir": "src",
-    "types": ["@cloudflare/workers-types"]
+    "types": ["@cloudflare/workers-types"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist", "wasm", "tests"]
