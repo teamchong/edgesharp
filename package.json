@@ -42,6 +42,7 @@
   "scripts": {
     "prepublishOnly": "pnpm run build:loader",
     "dev": "pnpm run build:loader && pnpm run build:demo && wrangler dev",
+    "dev:share": "pnpm --filter edgesharp-share run dev -- --port 8788",
     "build": "pnpm run build:loader && pnpm run build:demo",
     "build:full": "pnpm run build:wasm && pnpm run build:ts && pnpm run build:demo",
     "build:wasm": "cd wasm && ./build-wasm.sh && mkdir -p ../src/wasm && cp edgesharp.wasm ../src/wasm/",

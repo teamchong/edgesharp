@@ -16,27 +16,7 @@ import Image from 'next/image';
 
 export default function Home() {
   return (
-    <main className="max-w-6xl mx-auto px-6 py-10">
-      <nav className="flex items-center justify-end gap-5 text-sm mb-6">
-        <a
-          href="https://edgesharp.teamchong.net"
-          className="text-neutral-400 hover:text-orange-200"
-        >
-          Docs
-        </a>
-        <a
-          href="https://github.com/teamchong/edgesharp"
-          className="text-neutral-400 hover:text-orange-200"
-        >
-          GitHub
-        </a>
-        <a
-          href="https://deploy.workers.cloudflare.com/?url=https://github.com/teamchong/edgesharp"
-          className="px-3 py-1.5 rounded-md bg-orange-500/10 text-orange-200 border border-orange-400/30 hover:bg-orange-500/20"
-        >
-          Deploy to Cloudflare
-        </a>
-      </nav>
+    <main className="max-w-6xl mx-auto px-6 pb-12">
       <header className="mb-12">
         <div className="flex items-baseline gap-3 flex-wrap">
           <h1 className="text-3xl font-bold tracking-tight">edgesharp</h1>

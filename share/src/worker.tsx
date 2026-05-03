@@ -36,6 +36,10 @@ const FETCH_USER_AGENT =
 const SECURITY_HEADERS = {
   "X-Content-Type-Options": "nosniff",
   "Content-Security-Policy": "script-src 'none'; frame-src 'none'; sandbox;",
+  // Allow the playground demo (and any other site) to fetch the rendered
+  // PNG via JavaScript. The output is identical to what an `<img>` tag
+  // would receive, so opening it to JS adds no attack surface.
+  "Access-Control-Allow-Origin": "*",
 } as const;
 
 export default {

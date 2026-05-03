@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Header from "./Header";
+import Tabs from "./Tabs";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -12,6 +14,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="min-h-screen bg-neutral-950 text-neutral-100 font-sans antialiased">
+        <div className="max-w-6xl mx-auto px-6 pt-6">
+          <Header />
+          <Tabs />
+        </div>
         {children}
         <script
           defer
