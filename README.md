@@ -131,21 +131,28 @@ passthrough), AVIF, SVG (passthrough with restrictive CSP). See
 [Compatibility](https://edgesharp.teamchong.net/compatibility/) for the
 full side-by-side.
 
-## Also: social share image generation
+## Companion Worker: edgesharp-og
 
-The same Worker also serves `/card?url=...` and `/og?url=...` for
-generating OpenGraph / Twitter / square share PNGs from any source URL.
-Point a `<meta>` tag at it and any site (no SDK, no Next.js) gets share
-cards rendered via Satori + Resvg WASM, cached in R2 forever.
+The same repo includes [`og/`](./og/), a separate Worker that generates
+social share images (OpenGraph, Twitter, square thumbnails) from a meta
+tag. Independent deploy, independent bundle (~1.6 MB gzip), independent
+R2 bucket. Same `$5/mo Workers Paid per-account` covers both.
 
 ```html
-<meta property="og:image" content="https://your-worker.workers.dev/card?url=https://mysite.com/post">
+<meta property="og:image" content="https://og.example.com/og/">
+<meta name="twitter:image" content="https://og.example.com/x/">
 ```
 
-Try it on the playground's [Share cards
-tab](https://playground.edgesharp.teamchong.net/share/). Templates live in
-[`src/share/templates/`](./src/share/templates/) — fork and edit the JSX
-to customize.
+The Worker reads the `Referer` header to know which page is being
+shared, fetches that page&rsquo;s `<head>`, substitutes its `<meta>`
+tags into a bundled HTML template, and renders a PNG. Templates live
+in [`og/src/templates/`](./og/src/templates/) — fork the repo, edit
+the HTML, push to git; Workers Builds redeploys.
+
+[![Deploy edgesharp-og to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/teamchong/edgesharp/tree/main/og)
+
+See [`og/README.md`](./og/README.md) for the full URL contract,
+allowed-origin setup, and template authoring guide.
 
 ## Documentation
 

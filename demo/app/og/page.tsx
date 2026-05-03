@@ -1,36 +1,42 @@
-import SharePlayground from "./SharePlayground";
+import OgPlayground from "./OgPlayground";
 
 export default function SharePage() {
   return (
     <main className="max-w-6xl mx-auto px-6 pb-12">
       <header className="mb-8">
         <div className="flex items-baseline gap-3 flex-wrap">
-          <h1 className="text-3xl font-bold tracking-tight">edgesharp-share</h1>
+          <h1 className="text-3xl font-bold tracking-tight">edgesharp-og</h1>
           <span className="text-neutral-400 text-sm">
             Social share images from a meta tag
           </span>
         </div>
         <p className="mt-3 text-neutral-300 max-w-2xl leading-relaxed">
           Point a <code className="text-orange-300">{`<meta property="og:image">`}</code>{" "}
-          tag at this Worker with the source page URL. The Worker fetches
-          the page, extracts <code className="text-orange-300">{`<title>`}</code>{" "}
-          and meta tags, renders a JSX template via Satori + Resvg, and
-          caches the PNG forever in R2. No SDK, no build step, no Next.js
+          tag at this Worker. The Worker reads the{" "}
+          <code className="text-orange-300">Referer</code> header to know
+          which page is being shared, fetches that page&rsquo;s{" "}
+          <code className="text-orange-300">{`<head>`}</code>, substitutes
+          its meta tags into a template, renders via Satori + Resvg, and
+          caches the PNG in R2 forever. No SDK, no build step, no Next.js
           required.
         </p>
       </header>
 
       <section className="mb-10">
         <h2 className="text-lg font-semibold text-orange-300 mb-2">
-          Try it · paste any URL, see the rendered card
+          Try it · render this page as a OG card
         </h2>
         <p className="text-sm text-neutral-400 mb-4 max-w-2xl">
-          Live render running on a Cloudflare Worker. Pick a sample URL or
-          paste your own. Title and description auto-extract from the page;
-          override them with the inputs if you want different copy in the
-          card.
+          Live render on a Cloudflare Worker. Pick a template and a
+          platform, click Generate. The card uses{" "}
+          <em>this very page&rsquo;s</em>{" "}
+          <code className="text-orange-300">{`<title>`}</code> and{" "}
+          <code className="text-orange-300">{`<meta>`}</code> tags, because
+          the browser sends them as the{" "}
+          <code className="text-orange-300">Referer</code> when it fetches
+          the share Worker.
         </p>
-        <SharePlayground />
+        <OgPlayground />
       </section>
 
       <section className="mb-10">
@@ -40,9 +46,9 @@ export default function SharePage() {
         <ul className="text-sm text-neutral-300 space-y-2 max-w-2xl leading-relaxed">
           <li>
             • First request for a unique{" "}
-            <code className="text-orange-300">(url, platform)</code> renders
-            and caches to R2. Every subsequent request — Twitter, Slack,
-            Discord, real readers — serves from R2 with free egress.
+            <code className="text-orange-300">(referer, template)</code>{" "}
+            renders and caches to R2. Every subsequent request, Twitter,
+            Slack, Discord, real readers, serves from R2 with free egress.
           </li>
           <li>
             • Crawler traffic doesn&rsquo;t multiply costs. Bills are bounded by
@@ -67,13 +73,14 @@ export default function SharePage() {
           Customizing the layout
         </h2>
         <p className="text-sm text-neutral-300 max-w-2xl leading-relaxed">
-          The default template is a black background with the page title in
-          bold, the description below, and the site name with an accent dot
-          at the bottom. To change the layout, fork the repo and edit{" "}
-          <code className="text-orange-300">share/src/templates/default.tsx</code>{" "}
-          — it&rsquo;s a regular React-shaped JSX function. Drop new
-          variants into the same directory and select them via{" "}
-          <code className="text-orange-300">?template=name</code>.
+          Templates are HTML files in{" "}
+          <code className="text-orange-300">og/src/templates/</code>{" "}
+          with{" "}
+          <code className="text-orange-300">{`{{key}}`}</code> markers that
+          substitute from the source page&rsquo;s extracted{" "}
+          <code className="text-orange-300">{`<meta>`}</code> tags. To add
+          or change a template, fork the repo, edit the file, push to git,
+          Workers Builds redeploys.
         </p>
       </section>
     </main>

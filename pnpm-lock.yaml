@@ -99,6 +99,40 @@ importers:
         specifier: ^4.78.0
         version: 4.78.0(@cloudflare/workers-types@4.20260329.1)
 
+  share:
+    dependencies:
+      '@resvg/resvg-wasm':
+        specifier: ^2.6.2
+        version: 2.6.2
+      htmlparser2:
+        specifier: ^9.1.0
+        version: 9.1.0
+      react:
+        specifier: ^19.0.0
+        version: 19.2.4
+      satori:
+        specifier: ^0.18.0
+        version: 0.18.4
+      satori-html:
+        specifier: ^0.3.2
+        version: 0.3.2
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.0.0
+        version: 4.20260329.1
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.15
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.14
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      wrangler:
+        specifier: ^4.78.0
+        version: 4.78.0(@cloudflare/workers-types@4.20260329.1)
+
 packages:
 
   '@alloc/quick-lru@5.2.0':
@@ -2769,6 +2803,9 @@ packages:
     resolution: {integrity: sha512-2oMpl67a3zCH9H79LeMcbDhXW/UmWG/y2zuqnF2jQq5uq9TbM9TVyXvA4+t+ne2IIkBdrLpAaRQAvo7YI/Yyeg==}
     engines: {node: '>=18.0.0', npm: '>=8.0.0'}
     hasBin: true
+
+  satori-html@0.3.2:
+    resolution: {integrity: sha512-wjTh14iqADFKDK80e51/98MplTGfxz2RmIzh0GqShlf4a67+BooLywF17TvJPD6phO0Hxm7Mf1N5LtRYvdkYRA==}
 
   satori@0.18.4:
     resolution: {integrity: sha512-HanEzgXHlX3fzpGgxPoR3qI7FDpc/B+uE/KplzA6BkZGlWMaH98B/1Amq+OBF1pYPlGNzAXPYNHlrEVBvRBnHQ==}
@@ -6283,6 +6320,10 @@ snapshots:
       '@rollup/rollup-win32-x64-gnu': 4.59.0
       '@rollup/rollup-win32-x64-msvc': 4.59.0
       fsevents: 2.3.3
+
+  satori-html@0.3.2:
+    dependencies:
+      ultrahtml: 1.6.0
 
   satori@0.18.4:
     dependencies:

@@ -1,0 +1,26 @@
+{
+  "name": "edgesharp-og",
+  "main": "src/worker.tsx",
+  "compatibility_date": "2026-03-17",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "ALLOWED_ORIGINS": ""
+  },
+  "r2_buckets": [
+    {
+      "binding": "CACHE_BUCKET",
+      "bucket_name": "edgesharp-og-cache"
+    }
+  ],
+  "rules": [
+    { "type": "CompiledWasm", "globs": ["**/*.wasm"], "fallthrough": true },
+    { "type": "Data", "globs": ["**/*.ttf", "**/*.otf", "**/*.html"], "fallthrough": true }
+  ],
+  "observability": {
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "invocation_logs": true
+    }
+  }
+}

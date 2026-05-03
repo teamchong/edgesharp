@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 
 const TABS = [
   { href: "/", label: "Image optimization" },
-  { href: "/share/", label: "Share cards" },
+  { href: "/og/", label: "OG cards" },
 ];
 
 export default function Tabs() {
