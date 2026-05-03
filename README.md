@@ -131,6 +131,21 @@ passthrough), AVIF, SVG (passthrough with restrictive CSP). See
 [Compatibility](https://edgesharp.teamchong.net/compatibility/) for the
 full side-by-side.
 
+## Companion Worker: edgesharp-share
+
+The same repo includes [`share/`](./share/), a separate Worker that
+generates social share images (OpenGraph, Twitter, etc.) from a meta
+tag. Independent deploy, independent bundle (~1.6 MB gzip), independent
+R2 bucket. Same `$5/mo Workers Paid per-account` covers both.
+
+```html
+<meta property="og:image" content="https://share.example.com/card?url=https://mysite.com/post">
+```
+
+[![Deploy edgesharp-share to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/teamchong/edgesharp/tree/main/share)
+
+See [`share/README.md`](./share/README.md) for usage and customization.
+
 ## Documentation
 
 Full docs at **<https://edgesharp.teamchong.net>**.

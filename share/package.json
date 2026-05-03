@@ -1,0 +1,23 @@
+{
+  "name": "edgesharp-share",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@resvg/resvg-wasm": "^2.6.2",
+    "htmlparser2": "^9.1.0",
+    "react": "^19.0.0",
+    "satori": "^0.18.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.0.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "typescript": "^5.7.0",
+    "wrangler": "^4.78.0"
+  }
+}
