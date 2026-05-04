@@ -27,20 +27,21 @@ function fmtBytes(n: number) {
 }
 
 // Picsum's `/W/H` URL 302s to a different random image on every fetch, so
-// the browser-side <img> and the Worker's server-side fetch end up showing
-// unrelated images and the byte comparison is meaningless. Inject a stable
-// seed (`/seed/<rand>/W/H`) once when the URL enters the playground — the
-// rendered image is still chosen at random, but every subsequent fetch
-// resolves to the same one.
-function stabilizePicsum(input: string): string {
+// the browser-side <img> and the Worker's server-side fetch resolve to
+// unrelated images. Solution: pin the URL to `/seed/<rand>/W/H` (Picsum
+// returns the same image for a given seed) right before each Optimize
+// click — both panels then fetch the same seeded URL. We re-roll on every
+// click so "random Picsum" stays random across clicks; users wanting a
+// fixed image can paste a `/id/<n>/W/H` URL, which is left untouched.
+function rerollPicsum(input: string): string {
   try {
     const u = new URL(input);
     if (u.hostname !== "picsum.photos") return input;
-    if (u.pathname.startsWith("/seed/") || u.pathname.startsWith("/id/")) {
-      return input;
-    }
+    if (u.pathname.startsWith("/id/")) return input;
+    // Strip any prior `/seed/<X>` prefix so the new seed replaces it.
+    const path = u.pathname.replace(/^\/seed\/[^/]+/, "");
     const seed = Math.random().toString(36).slice(2, 10);
-    u.pathname = `/seed/${seed}${u.pathname}`;
+    u.pathname = `/seed/${seed}${path}`;
     return u.toString();
   } catch {
     return input;
@@ -48,7 +49,13 @@ function stabilizePicsum(input: string): string {
 }
 
 export default function Playground() {
+  // `url` is what the textbox shows (the user's intent — e.g. the bare
+  // `picsum.photos/1200/800`). `effectiveUrl` is what we actually fetch
+  // from in both panels — for Picsum that gets a fresh seed on each
+  // Optimize click so the comparison is consistent without hiding the
+  // user's URL behind seed gunk.
   const [url, setUrl] = useState(SAMPLES[0]!.url);
+  const [effectiveUrl, setEffectiveUrl] = useState(SAMPLES[0]!.url);
   const [width, setWidth] = useState<number>(640);
   const [quality, setQuality] = useState<number>(75);
   const [format, setFormat] = useState<string>("auto");
@@ -64,14 +71,23 @@ export default function Playground() {
   const [originalSize, setOriginalSize] = useState<number | null>(null);
 
   const requestUrl = useMemo(() => {
-    const params = new URLSearchParams({ url, w: String(width), q: String(quality) });
+    const params = new URLSearchParams({
+      url: effectiveUrl,
+      w: String(width),
+      q: String(quality),
+    });
     return `/_next/image?${params}`;
-  }, [url, width, quality]);
+  }, [effectiveUrl, width, quality]);
+
+  // When the user-facing URL changes, derive a fresh effective URL.
+  useEffect(() => {
+    setEffectiveUrl(rerollPicsum(url));
+  }, [url]);
 
   useEffect(() => {
     let cancelled = false;
     setOriginalSize(null);
-    fetch(url)
+    fetch(effectiveUrl)
       .then((r) => (r.ok ? r.blob() : null))
       .then((b) => {
         if (cancelled || !b) return;
@@ -81,28 +97,28 @@ export default function Playground() {
     return () => {
       cancelled = true;
     };
-  }, [url]);
+  }, [effectiveUrl]);
 
   async function run() {
     setError(null);
     setLoading(true);
 
-    // Late-stabilize: if the user pasted a random Picsum URL into the input
-    // field, lock it to a seed before kicking off the side-by-side. Updates
-    // the visible URL so the user sees what was actually used.
-    const stableUrl = stabilizePicsum(url);
-    if (stableUrl !== url) setUrl(stableUrl);
+    // Re-roll Picsum's seed on every click so each Optimize gets a fresh
+    // random image while both panels see the same one. Textbox URL stays
+    // as-is; only the internal effectiveUrl changes.
+    const fresh = rerollPicsum(url);
+    setEffectiveUrl(fresh);
     const params = new URLSearchParams({
-      url: stableUrl,
+      url: fresh,
       w: String(width),
       q: String(quality),
     });
-    const stableRequestUrl = `/_next/image?${params}`;
+    const freshRequestUrl = `/_next/image?${params}`;
 
     const accept = FORMATS.find((f) => f.value === format)?.accept ?? "*/*";
     const t0 = performance.now();
     try {
-      const res = await fetch(stableRequestUrl, { headers: { Accept: accept } });
+      const res = await fetch(freshRequestUrl, { headers: { Accept: accept } });
       if (!res.ok) {
         const text = await res.text();
         setError(`${res.status} · ${text.slice(0, 200)}`);
@@ -151,7 +167,7 @@ export default function Playground() {
           <select
             value=""
             onChange={(e) => {
-              if (e.target.value) setUrl(stabilizePicsum(e.target.value));
+              if (e.target.value) setUrl(e.target.value);
             }}
             className="mt-2 w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-md text-sm text-neutral-300 focus:outline-none"
           >
@@ -267,7 +283,7 @@ export default function Playground() {
           <div className="aspect-[4/3] flex items-center justify-center overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={url}
+              src={effectiveUrl}
               alt="original"
               className="max-w-full max-h-full object-contain"
             />
