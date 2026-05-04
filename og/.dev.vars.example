@@ -1,0 +1,7 @@
+# Copy to og/.dev.vars for local `wrangler dev`. The .dev.vars file is
+# gitignored — it never ships with the repo or with `wrangler deploy`.
+#
+# For local development the demo runs on http://localhost:8787 and the
+# og Worker on http://localhost:8788, so we open the allowlist to all
+# origins. Production is configured separately via dashboard Secrets.
+ALLOWED_ORIGINS=*

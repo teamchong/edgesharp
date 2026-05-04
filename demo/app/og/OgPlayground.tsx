@@ -17,14 +17,22 @@ const PLATFORMS = [
   { value: "sq", label: "Square (1200×1200)", aspect: "1" },
 ] as const;
 
-// edgesharp-og is a separate Worker. Production builds bake in the
-// canonical URL; dev defaults to localhost:8788, which matches
-// `pnpm run dev:og`. Forks deploying their own og Worker for their
-// own demo just edit this constant.
-const OG_BASE =
-  process.env.NODE_ENV === "production"
-    ? "https://edgesharp-og.teamchong.net"
-    : "http://localhost:8788";
+// edgesharp-og is a separate Worker. Resolve at runtime from window
+// hostname so local dev (next is built with NODE_ENV=production even
+// when served via wrangler dev, so a build-time env check is
+// useless) points at localhost:8788, matching `pnpm run dev:og`.
+// Forks deploying their own og Worker for their own demo just edit
+// this constant.
+const PROD_OG_BASE = "https://edgesharp-og.teamchong.net";
+const DEV_OG_BASE = "http://localhost:8788";
+
+function resolveOgBase(): string {
+  if (typeof window === "undefined") return PROD_OG_BASE;
+  const host = window.location.hostname;
+  return host === "localhost" || host === "127.0.0.1"
+    ? DEV_OG_BASE
+    : PROD_OG_BASE;
+}
 
 export default function OgPlayground() {
   const [preset, setPreset] = useState<Preset>("default");
@@ -54,11 +62,20 @@ export default function OgPlayground() {
 
   const templateVars = useMemo(() => variablesIn(effectiveBody), [effectiveBody]);
 
+  // Initial render uses the prod URL (matches what server-side renders
+  // emit); after mount, swap to localhost for local dev. Brief flash on
+  // localhost is harmless since these URLs are only used for display +
+  // outbound fetches, no UI breakage.
+  const [ogBase, setOgBase] = useState<string>(PROD_OG_BASE);
+  useEffect(() => {
+    setOgBase(resolveOgBase());
+  }, []);
+
   const urlFilename =
     effectiveFilename === "default.html" ? "" : effectiveFilename;
   const generatedUrl = useMemo(
-    () => `${OG_BASE}/${platform}/${urlFilename}`,
-    [platform, urlFilename],
+    () => `${ogBase}/${platform}/${urlFilename}`,
+    [ogBase, platform, urlFilename],
   );
   const metaSnippet = useMemo(
     () => buildMetaSnippet(generatedUrl, platform),

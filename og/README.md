@@ -19,17 +19,22 @@ edits, not by request volume.
 
 ## Why this exists
 
-- Vercel charges per OG render, plus crawler traffic from Twitter /
-  Slack / Discord re-fetching meta tags multiplies the bill.
+- `@vercel/og` runs as a Vercel Edge Function billed per invocation,
+  and Vercel deploys typically invalidate the edge cache — every code
+  push triggers a re-render burst as crawlers re-fetch your cards.
 - Cloudflare Images is for transformation, not generation; there's no
   CF-native equivalent of `@vercel/og`.
 - Building OG cards by hand in Photoshop / Figma scales linearly with
   pages.
 
-This Worker plus a flat $5/mo
+This Worker runs on
 [Workers Paid](https://developers.cloudflare.com/workers/platform/pricing/)
-account renders unlimited cards. R2 egress is free, so once a card is
-cached the per-render cost is zero.
+($5/mo flat per Cloudflare account, covering every Worker on the
+account). With the cache-forever design (cards refresh only on
+`/purge` or `/refresh`), **total render volume is bounded by edits,
+not by request volume or any TTL** — so cost stays predictable as
+traffic scales. R2 egress is free, so served cards cost nothing per
+fetch.
 
 ## URL contract
 
@@ -262,17 +267,40 @@ Comfortably under the 10 MB compressed Worker limit. Cold-boot
 
 [Workers Paid is $5/month per Cloudflare
 account](https://developers.cloudflare.com/workers/platform/pricing/),
-covering unlimited Workers. Renders are CPU-only (no per-transform
-fee). R2 storage is
-[$0.015/GB-month](https://developers.cloudflare.com/r2/pricing/);
-PNG cards are 30–80 KB so 100k unique cards = ~5 GB = ~8¢/month.
+covering every Worker on the account (one $5 base whether you run one
+Worker or twenty).
 
-After the first cold render of each unique `(referer, platform,
-template)`, every subsequent request — Twitter crawler, Slack, real
-reader — is a free R2 read or edge-cache hit. Cards never auto-expire,
-so a card you rendered today still serves from R2 next year unless you
-explicitly `/purge` or `/refresh`. **Bills scale with edits, not with
-fetch volume.**
+Beyond the flat base, billing is:
+
+- **CPU**: 30M CPU-ms/month included on the Workers Standard plan,
+  then [$0.02 per million CPU-ms](https://developers.cloudflare.com/workers/platform/pricing/#workers).
+  A Satori + Resvg render is roughly 500–1500 ms of CPU; the included
+  tier covers 20–60k cold renders/month before any per-CPU charge.
+- **Requests**: 10M/month included, then $0.30 per million.
+- **R2 storage**: [$0.015/GB-month](https://developers.cloudflare.com/r2/pricing/).
+  PNG cards are 30–80 KB so 100k unique cards = ~5 GB = ~8¢/month.
+- **R2 egress**: free, so served cards cost nothing per fetch.
+
+The cache-forever design means every subsequent fetch of an existing
+card — Twitter crawler, Slack, real reader — is a free R2 read or
+edge-cache hit. Cards re-render only when you `/purge` or `/refresh`.
+**Bills scale with edits, not with fetch volume**, which is the
+property that breaks for per-invocation pricing models when crawler
+traffic spikes.
+
+## Local development
+
+```bash
+cp og/.dev.vars.example og/.dev.vars
+pnpm run dev:og   # og Worker on :8788
+pnpm run dev      # main edgesharp Worker + demo on :8787
+```
+
+`.dev.vars` is gitignored — it never ships with the repo or with
+`wrangler deploy`. The example file opens `ALLOWED_ORIGINS=*` so the
+local demo on `localhost:8787` can hit the local og Worker on
+`localhost:8788` without 403. Production stays configured via dashboard
+Secrets, untouched.
 
 ## Limits
 
