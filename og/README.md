@@ -129,6 +129,29 @@ Until this is set, every request returns `403` with a message naming
 the rejected origin — that's the safety net. If you forget to
 configure it, you'll see the 403 on the very first share.
 
+## Continuous deployment
+
+Two paths, depending on how you set the Worker up:
+
+**Deploy-button install** — Cloudflare Workers Builds is wired to
+your fork automatically. Pushes to `main` that touch `og/` redeploy
+the Worker. No GitHub secrets to configure.
+
+**Forked and pushing manually** — `.github/workflows/ci.yml` includes
+a `deploy-og` job that runs `wrangler deploy` from `og/` on every
+`main` push (after tests pass). Add two repository secrets in your
+GitHub fork to turn it on:
+
+| Secret | Where to find it |
+|---|---|
+| `CLOUDFLARE_API_TOKEN` | Cloudflare dashboard → My Profile → API Tokens → Create Token → "Edit Cloudflare Workers" template |
+| `CLOUDFLARE_ACCOUNT_ID` | Any Worker's overview page in the dashboard, right sidebar |
+
+Without these secrets the `deploy-og` job will fail on push to `main`.
+If you don't want auto-deploy, delete the `deploy-og` block from
+`.github/workflows/ci.yml` and deploy from your laptop instead with
+`pnpm --filter edgesharp-og run deploy`.
+
 ## Templates
 
 Templates are HTML files in `src/templates/`, bundled at build time.
