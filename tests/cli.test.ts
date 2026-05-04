@@ -1,5 +1,4 @@
-import { test } from "node:test";
-import assert from "node:assert/strict";
+import { test, expect } from "vitest";
 import { spawn } from "node:child_process";
 import { createServer, type Server } from "node:http";
 import { fileURLToPath } from "node:url";
@@ -89,31 +88,31 @@ function runCli(args: string[], envOverrides: NodeJS.ProcessEnv = {}): Promise<C
   });
 }
 
-test("purge: sends POST /purge with the page URL as Referer", async () => {
+test("og purge: sends POST /purge with the page URL as Referer", async () => {
   const server = await startMockServer(() => ({
     status: 200,
     body: { purged: ["/og/", "/og/article.html", "/x/"], referer: "https://yoursite.com/article" },
   }));
   try {
     const result = await runCli([
-      "purge",
+      "og", "purge",
       "https://yoursite.com/article",
       "--worker", server.url,
     ]);
-    assert.equal(result.code, 0, `stderr: ${result.stderr}`);
-    assert.equal(server.requests.length, 1);
-    assert.equal(server.requests[0].method, "POST");
-    assert.equal(server.requests[0].url, "/purge");
-    assert.equal(server.requests[0].referer, "https://yoursite.com/article");
-    assert.match(result.stdout, /purged 3 cached variants/);
-    assert.match(result.stdout, /https:\/\/yoursite\.com\/article/);
-    assert.equal(result.stderr, "");
+    expect(result.code, `stderr: ${result.stderr}`).toBe(0);
+    expect(server.requests).toHaveLength(1);
+    expect(server.requests[0].method).toBe("POST");
+    expect(server.requests[0].url).toBe("/purge");
+    expect(server.requests[0].referer).toBe("https://yoursite.com/article");
+    expect(result.stdout).toMatch(/purged 3 cached variants/);
+    expect(result.stdout).toMatch(/https:\/\/yoursite\.com\/article/);
+    expect(result.stderr).toBe("");
   } finally {
     server.close();
   }
 });
 
-test("refresh: strips path from URL and sends origin/ as Referer", async () => {
+test("og refresh: strips path from URL and sends origin/ as Referer", async () => {
   const server = await startMockServer(() => ({
     status: 200,
     body: {
@@ -126,40 +125,40 @@ test("refresh: strips path from URL and sends origin/ as Referer", async () => {
   }));
   try {
     const result = await runCli([
-      "refresh",
+      "og", "refresh",
       "https://yoursite.com/some/path",
       "--worker", server.url,
     ]);
-    assert.equal(result.code, 0, `stderr: ${result.stderr}`);
-    assert.equal(server.requests[0].url, "/refresh");
-    assert.equal(server.requests[0].referer, "https://yoursite.com/");
-    assert.match(result.stdout, /scanned 12, purged 10, 2 orphans cleaned, 1 foreign skipped/);
+    expect(result.code, `stderr: ${result.stderr}`).toBe(0);
+    expect(server.requests[0].url).toBe("/refresh");
+    expect(server.requests[0].referer).toBe("https://yoursite.com/");
+    expect(result.stdout).toMatch(/scanned 12, purged 10, 2 orphans cleaned, 1 foreign skipped/);
   } finally {
     server.close();
   }
 });
 
-test("403 from Worker (origin not allowed): exit 1, body in stderr, stdout empty", async () => {
+test("og purge 403 (origin not allowed): exit 1, body in stderr, stdout empty", async () => {
   const server = await startMockServer(() => ({
     status: 403,
     body: "Forbidden: origin attacker.com not in ALLOWED_ORIGINS",
   }));
   try {
     const result = await runCli([
-      "purge",
+      "og", "purge",
       "https://attacker.com/x",
       "--worker", server.url,
     ]);
-    assert.equal(result.code, 1);
-    assert.match(result.stderr, /purge failed \(403\)/);
-    assert.match(result.stderr, /not in ALLOWED_ORIGINS/);
-    assert.equal(result.stdout, "", "stdout must stay empty on auth failure (script-safe)");
+    expect(result.code).toBe(1);
+    expect(result.stderr).toMatch(/purge failed \(403\)/);
+    expect(result.stderr).toMatch(/not in ALLOWED_ORIGINS/);
+    expect(result.stdout).toBe("");
   } finally {
     server.close();
   }
 });
 
-test("500 from Worker: exit 1, body capped to 500 chars in stderr", async () => {
+test("og refresh 500: exit 1, body capped to 500 chars in stderr", async () => {
   const longBody = "x".repeat(2000);
   const server = await startMockServer(() => ({
     status: 500,
@@ -167,32 +166,31 @@ test("500 from Worker: exit 1, body capped to 500 chars in stderr", async () => 
   }));
   try {
     const result = await runCli([
-      "refresh",
+      "og", "refresh",
       "https://yoursite.com",
       "--worker", server.url,
     ]);
-    assert.equal(result.code, 1);
-    assert.match(result.stderr, /refresh failed \(500\)/);
-    // Cap defends against runaway error bodies leaking into terminal/CI logs
+    expect(result.code).toBe(1);
+    expect(result.stderr).toMatch(/refresh failed \(500\)/);
     const xCount = (result.stderr.match(/x/g) ?? []).length;
-    assert.ok(xCount <= 500, `expected stderr to cap body at 500 chars, got ${xCount}`);
+    expect(xCount, `expected stderr to cap body at 500 chars, got ${xCount}`).toBeLessThanOrEqual(500);
   } finally {
     server.close();
   }
 });
 
-test("missing --worker without env: exit 1, no fetch attempted", async () => {
+test("og purge missing --worker without env: exit 1, no fetch attempted", async () => {
   let fetched = false;
   const server = await startMockServer(() => {
     fetched = true;
     return { status: 200, body: {} };
   });
   try {
-    const result = await runCli(["purge", "https://yoursite.com/x"]);
-    assert.equal(result.code, 1);
-    assert.match(result.stderr, /missing --worker URL/);
-    assert.equal(result.stdout, "");
-    assert.equal(fetched, false, "must not contact any host before validating config");
+    const result = await runCli(["og", "purge", "https://yoursite.com/x"]);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toMatch(/missing --worker URL/);
+    expect(result.stdout).toBe("");
+    expect(fetched, "must not contact any host before validating config").toBe(false);
   } finally {
     server.close();
   }
@@ -205,11 +203,11 @@ test("EDGESHARP_OG_URL env var works as --worker fallback", async () => {
   }));
   try {
     const result = await runCli(
-      ["purge", "https://yoursite.com/x"],
+      ["og", "purge", "https://yoursite.com/x"],
       { EDGESHARP_OG_URL: server.url },
     );
-    assert.equal(result.code, 0, `stderr: ${result.stderr}`);
-    assert.equal(server.requests[0].referer, "https://yoursite.com/x");
+    expect(result.code, `stderr: ${result.stderr}`).toBe(0);
+    expect(server.requests[0].referer).toBe("https://yoursite.com/x");
   } finally {
     server.close();
   }
@@ -228,39 +226,47 @@ test("--worker flag wins over EDGESHARP_OG_URL env var", async () => {
   });
   try {
     const result = await runCli(
-      ["purge", "https://yoursite.com/x", "--worker", flagServer.url],
+      ["og", "purge", "https://yoursite.com/x", "--worker", flagServer.url],
       { EDGESHARP_OG_URL: envServer.url },
     );
-    assert.equal(result.code, 0, `stderr: ${result.stderr}`);
-    assert.equal(flagHit, true);
-    assert.equal(envHit, false);
+    expect(result.code, `stderr: ${result.stderr}`).toBe(0);
+    expect(flagHit).toBe(true);
+    expect(envHit).toBe(false);
   } finally {
     flagServer.close();
     envServer.close();
   }
 });
 
-test("--help: exit 0, usage on stdout", async () => {
+test("top-level --help: exit 0, usage on stdout, lists subcommands", async () => {
   const result = await runCli(["--help"]);
-  assert.equal(result.code, 0);
-  assert.match(result.stdout, /edgesharp-og — purge or refresh/);
-  assert.match(result.stdout, /EDGESHARP_OG_URL/);
+  expect(result.code).toBe(0);
+  expect(result.stdout).toMatch(/edgesharp — utilities/);
+  expect(result.stdout).toMatch(/og purge/);
+  expect(result.stdout).toMatch(/og refresh/);
 });
 
-test("no args: exit 1, usage on stderr (so stdout stays clean for scripts)", async () => {
+test("og --help: exit 0, og-specific usage on stdout", async () => {
+  const result = await runCli(["og", "--help"]);
+  expect(result.code).toBe(0);
+  expect(result.stdout).toMatch(/edgesharp og — purge or refresh/);
+  expect(result.stdout).toMatch(/EDGESHARP_OG_URL/);
+});
+
+test("no args: exit 1, top-level help on stderr (so stdout stays clean for scripts)", async () => {
   const result = await runCli([]);
-  assert.equal(result.code, 1);
-  assert.equal(result.stdout, "");
-  assert.match(result.stderr, /edgesharp-og — purge or refresh/);
+  expect(result.code).toBe(1);
+  expect(result.stdout).toBe("");
+  expect(result.stderr).toMatch(/edgesharp — utilities/);
 });
 
 test("invalid --worker URL: exit 1 before any network attempt", async () => {
   const result = await runCli([
-    "purge", "https://yoursite.com/x",
+    "og", "purge", "https://yoursite.com/x",
     "--worker", "not a url",
   ]);
-  assert.equal(result.code, 1);
-  assert.match(result.stderr, /invalid worker URL/);
+  expect(result.code).toBe(1);
+  expect(result.stderr).toMatch(/invalid worker URL/);
 });
 
 test("invalid target URL: exit 1, no fetch", async () => {
@@ -268,12 +274,12 @@ test("invalid target URL: exit 1, no fetch", async () => {
   const server = await startMockServer(() => { fetched = true; return { status: 200, body: {} }; });
   try {
     const result = await runCli([
-      "purge", "::not-a-url",
+      "og", "purge", "::not-a-url",
       "--worker", server.url,
     ]);
-    assert.equal(result.code, 1);
-    assert.match(result.stderr, /invalid URL/);
-    assert.equal(fetched, false);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toMatch(/invalid URL/);
+    expect(fetched).toBe(false);
   } finally {
     server.close();
   }
@@ -286,14 +292,14 @@ test("--json: prints exact Worker JSON, parseable by callers", async () => {
   }));
   try {
     const result = await runCli([
-      "purge", "https://yoursite.com/x",
+      "og", "purge", "https://yoursite.com/x",
       "--worker", server.url,
       "--json",
     ]);
-    assert.equal(result.code, 0, `stderr: ${result.stderr}`);
+    expect(result.code, `stderr: ${result.stderr}`).toBe(0);
     const parsed = JSON.parse(result.stdout);
-    assert.deepEqual(parsed.purged, ["/og/"]);
-    assert.equal(parsed.referer, "https://yoursite.com/x");
+    expect(parsed.purged).toEqual(["/og/"]);
+    expect(parsed.referer).toBe("https://yoursite.com/x");
   } finally {
     server.close();
   }
@@ -306,22 +312,28 @@ test("--quiet: success keeps stdout and stderr both empty", async () => {
   }));
   try {
     const result = await runCli([
-      "purge", "https://yoursite.com/x",
+      "og", "purge", "https://yoursite.com/x",
       "--worker", server.url,
       "--quiet",
     ]);
-    assert.equal(result.code, 0);
-    assert.equal(result.stdout, "");
-    assert.equal(result.stderr, "");
+    expect(result.code).toBe(0);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("");
   } finally {
     server.close();
   }
 });
 
-test("unknown command: exit 1 with helpful error", async () => {
-  const result = await runCli(["bogus", "x", "--worker", "http://example.com"]);
-  assert.equal(result.code, 1);
-  assert.match(result.stderr, /unknown command/);
+test("unknown top-level command: exit 1 with helpful error", async () => {
+  const result = await runCli(["bogus"]);
+  expect(result.code).toBe(1);
+  expect(result.stderr).toMatch(/unknown command: bogus/);
+});
+
+test("unknown og subcommand: exit 1 with helpful error", async () => {
+  const result = await runCli(["og", "bogus", "https://yoursite.com/x", "--worker", "http://example.com"]);
+  expect(result.code).toBe(1);
+  expect(result.stderr).toMatch(/unknown og subcommand/);
 });
 
 test("Worker URL never appears on stdout (always stderr) on error", async () => {
@@ -331,11 +343,11 @@ test("Worker URL never appears on stdout (always stderr) on error", async () => 
   }));
   try {
     const result = await runCli([
-      "purge", "https://yoursite.com/x",
+      "og", "purge", "https://yoursite.com/x",
       "--worker", server.url,
     ]);
-    assert.equal(result.code, 1);
-    assert.equal(result.stdout, "", "stdout must stay clean on error so script consumers can rely on it");
+    expect(result.code).toBe(1);
+    expect(result.stdout, "stdout must stay clean on error so script consumers can rely on it").toBe("");
   } finally {
     server.close();
   }

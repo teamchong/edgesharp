@@ -228,7 +228,7 @@ curl -X POST https://og.example.com/purge \
   -H 'Referer: https://yoursite.com/article'
 
 # or via the CLI (no Referer dance):
-npx edgesharp-og purge https://yoursite.com/article \
+npx edgesharp og purge https://yoursite.com/article \
   --worker https://og.example.com
 ```
 
@@ -242,7 +242,7 @@ curl -X POST https://og.example.com/refresh \
   -H 'Referer: https://yoursite.com/'
 
 # or via the CLI:
-npx edgesharp-og refresh https://yoursite.com \
+npx edgesharp og refresh https://yoursite.com \
   --worker https://og.example.com
 ```
 
@@ -266,6 +266,34 @@ Both endpoints honor `ALLOWED_ORIGINS` — callers from origins you haven't
 opted in get 403. `/refresh` further filters by stored `sourceUrl` so a
 caller can only wipe cards they originally rendered. Other PoPs catch up
 on edge-cache `max-age` expiry (24h).
+
+### CLI options
+
+The `edgesharp` bin ships in the [`edgesharp` npm
+package](https://www.npmjs.com/package/edgesharp) (the same one as the
+Next.js loader), so `npx edgesharp og ...` works once that package is a
+dependency of any project on your machine. The og subcommand has two
+modes:
+
+| Flag | Effect |
+|---|---|
+| `--worker <url>` | Your og Worker URL. Required unless `EDGESHARP_OG_URL` is set in the environment. |
+| `--json` | Print the Worker's full JSON response instead of a one-line summary. Pipe into `jq` for scripts. |
+| `--quiet` | Silent on success. Errors still go to stderr; exit code is the signal. |
+
+Set `EDGESHARP_OG_URL` once and you can drop `--worker` from every
+command:
+
+```bash
+export EDGESHARP_OG_URL=https://og.example.com
+npx edgesharp og purge https://yoursite.com/article
+npx edgesharp og refresh https://yoursite.com
+```
+
+Authorization is the same Referer-vs-`ALLOWED_ORIGINS` check — the CLI
+sends the page URL (purge) or origin (refresh) as the Referer. There's
+no Cloudflare API token, account ID, or other auth surface introduced.
+A 403 from the Worker surfaces verbatim on stderr with exit code 1.
 
 ### Social platforms cache cards on their side too
 

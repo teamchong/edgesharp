@@ -1,11 +1,10 @@
-#!/usr/bin/env node
 import { parseArgs } from "node:util";
 
-const HELP = `edgesharp-og — purge or refresh cached OG cards on your Worker.
+const OG_HELP = `edgesharp og — purge or refresh cached OG cards on your Worker.
 
 Usage:
-  edgesharp-og purge <page-url>      Delete every cached card for one page
-  edgesharp-og refresh <origin-url>  Delete every cached card from an origin
+  edgesharp og purge   <page-url>     Delete every cached card for one page
+  edgesharp og refresh <origin-url>   Delete every cached card from an origin
 
 Options:
   --worker <url>   Your og Worker URL (or set EDGESHARP_OG_URL)
@@ -14,15 +13,15 @@ Options:
   -h, --help       Show this help
 
 Examples:
-  edgesharp-og purge https://yoursite.com/article \\
+  edgesharp og purge https://yoursite.com/article \\
     --worker https://og.example.com
 
   EDGESHARP_OG_URL=https://og.example.com \\
-    edgesharp-og refresh https://yoursite.com
+    edgesharp og refresh https://yoursite.com
 
-The Worker authorizes by Referer against ALLOWED_ORIGINS. The CLI sends
-the page-url (purge) or origin-url (refresh) in the Referer header, so
-the calling URL must be on your Worker's allowlist.`;
+The Worker authorizes by Referer against ALLOWED_ORIGINS. The CLI
+sends the page-url (purge) or origin-url (refresh) in the Referer
+header, so the calling URL must be on your Worker's allowlist.`;
 
 interface PurgeResponse {
   purged: string[];
@@ -41,38 +40,6 @@ interface Flags {
   worker?: string;
   json: boolean;
   quiet: boolean;
-  help: boolean;
-}
-
-function parseCli(): { command: string; target: string; flags: Flags } | null {
-  const { values, positionals } = parseArgs({
-    options: {
-      worker: { type: "string" },
-      json: { type: "boolean", default: false },
-      quiet: { type: "boolean", default: false },
-      help: { type: "boolean", short: "h", default: false },
-    },
-    allowPositionals: true,
-    strict: true,
-  });
-
-  if (values.help) {
-    console.log(HELP);
-    process.exit(0);
-  }
-  if (positionals.length < 1) return null;
-
-  const [command, target = ""] = positionals;
-  return {
-    command,
-    target,
-    flags: {
-      worker: values.worker,
-      json: !!values.json,
-      quiet: !!values.quiet,
-      help: !!values.help,
-    },
-  };
 }
 
 function fail(message: string): never {
@@ -134,21 +101,48 @@ async function runRefresh(worker: URL, originUrl: URL, flags: Flags): Promise<vo
   }
 }
 
-async function main(): Promise<void> {
-  const parsed = parseCli();
-  if (!parsed) {
-    process.stderr.write(HELP + "\n");
+export async function runOgCommand(argv: string[]): Promise<void> {
+  let parsed;
+  try {
+    parsed = parseArgs({
+      args: argv,
+      options: {
+        worker: { type: "string" },
+        json: { type: "boolean", default: false },
+        quiet: { type: "boolean", default: false },
+        help: { type: "boolean", short: "h", default: false },
+      },
+      allowPositionals: true,
+      strict: true,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    fail(message);
+  }
+  const { values, positionals } = parsed;
+
+  if (values.help) {
+    process.stdout.write(OG_HELP + "\n");
+    process.exit(0);
+  }
+  if (positionals.length === 0) {
+    process.stderr.write(OG_HELP + "\n");
     process.exit(1);
   }
-  const { command, target, flags } = parsed;
 
-  if (command !== "purge" && command !== "refresh") {
-    fail(`unknown command: ${command}`);
+  const [subcommand, target = ""] = positionals;
+  if (subcommand !== "purge" && subcommand !== "refresh") {
+    fail(`unknown og subcommand: ${subcommand}`);
   }
   if (!target) {
-    fail(`${command} requires a URL argument`);
+    fail(`og ${subcommand} requires a URL argument`);
   }
 
+  const flags: Flags = {
+    worker: values.worker,
+    json: !!values.json,
+    quiet: !!values.quiet,
+  };
   const workerSpec = flags.worker ?? process.env.EDGESHARP_OG_URL;
   if (!workerSpec) {
     fail("missing --worker URL (or set EDGESHARP_OG_URL)");
@@ -157,14 +151,9 @@ async function main(): Promise<void> {
   const worker = parseUrl(workerSpec, "worker URL");
   const targetUrl = parseUrl(target, "URL");
 
-  if (command === "purge") {
+  if (subcommand === "purge") {
     await runPurge(worker, targetUrl, flags);
   } else {
     await runRefresh(worker, targetUrl, flags);
   }
 }
-
-main().catch((err: unknown) => {
-  const message = err instanceof Error ? err.message : String(err);
-  fail(message);
-});

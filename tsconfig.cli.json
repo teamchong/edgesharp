@@ -1,17 +1,13 @@
 {
+  "extends": "./tsconfig.json",
   "compilerOptions": {
-    "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "outDir": "dist",
     "rootDir": "src",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
     "declaration": false,
-    "sourceMap": false,
-    "removeComments": false,
     "types": ["node"]
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/cli.ts", "src/og-cli.ts"],
+  "exclude": []
 }

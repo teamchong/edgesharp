@@ -160,6 +160,14 @@ Worker re-deploys automatically after you save. See
 [`og/README.md`](./og/README.md) for the full URL contract, allowed-
 origin setup, and template authoring guide.
 
+The `edgesharp` package also ships an `edgesharp og` CLI for
+operating the Worker without the curl + Referer dance:
+
+```bash
+npx edgesharp og purge   https://yoursite.com/article  --worker https://og.example.com
+npx edgesharp og refresh https://yoursite.com          --worker https://og.example.com
+```
+
 ## Documentation
 
 Full docs at **<https://edgesharp.teamchong.net>**.

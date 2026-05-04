@@ -38,6 +38,9 @@ jobs:
       - name: Loader tests
         run: npx vitest run tests/loader.test.ts
 
+      - name: CLI tests
+        run: npx vitest run tests/cli.test.ts
+
       - name: Visual conformance tests (vs Sharp)
         run: npx vitest run tests/conformance/visual.test.ts
 
@@ -50,11 +53,8 @@ jobs:
       - name: Typecheck og Worker
         run: cd og && npx tsc --noEmit
 
-      - name: Typecheck og CLI
-        run: pnpm --filter edgesharp-og-cli run typecheck
-
-      - name: og CLI tests
-        run: pnpm --filter edgesharp-og-cli run test
+      - name: Typecheck CLI
+        run: npx tsc -p tsconfig.cli.json --noEmit
 
   deploy-docs:
     runs-on: ubuntu-latest
