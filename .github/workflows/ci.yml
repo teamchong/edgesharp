@@ -47,6 +47,9 @@ jobs:
       - name: Protocol conformance tests (wrangler dev)
         run: npx vitest run -c vitest.protocol.config.ts
 
+      - name: Typecheck og Worker
+        run: cd og && npx tsc --noEmit
+
   deploy-docs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'

@@ -23,7 +23,7 @@ on:
         default: "0.10"
 
 jobs:
-  probe:
+  probe-image:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,8 +32,24 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Probe playground
+      - name: Probe image proxy
         env:
           IMAGEMODE_URL: https://playground.edgesharp.teamchong.net
           EDGESHARP_FAIL_THRESHOLD: ${{ inputs.threshold || '0.10' }}
         run: node scripts/cold-load.mjs
+
+  probe-og:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Probe og Worker
+        env:
+          OG_URL: https://edgesharp-og.teamchong.net
+          OG_REFERER: https://playground.edgesharp.teamchong.net/og/
+          OG_FAIL_THRESHOLD: ${{ inputs.threshold || '0.10' }}
+        run: node scripts/og-cold-load.mjs
