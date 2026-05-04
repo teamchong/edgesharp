@@ -151,8 +151,14 @@ the HTML, push to git; Workers Builds redeploys.
 
 [![Deploy edgesharp-og to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/teamchong/edgesharp/tree/main/og)
 
-See [`og/README.md`](./og/README.md) for the full URL contract,
-allowed-origin setup, and template authoring guide.
+**One required step after deploy** — the Worker is default-deny until
+you set `ALLOWED_ORIGINS` as a **Secret** on the deployed Worker
+(Cloudflare dashboard → `edgesharp-og` → Settings → Variables and
+Secrets → Add → Type: Secret). Set it to your site's hostname (e.g.
+`example.com`, `*.example.com`, or a comma-separated list). The
+Worker re-deploys automatically after you save. See
+[`og/README.md`](./og/README.md) for the full URL contract, allowed-
+origin setup, and template authoring guide.
 
 ## Documentation
 

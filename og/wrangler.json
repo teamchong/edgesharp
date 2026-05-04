@@ -3,9 +3,6 @@
   "main": "src/worker.tsx",
   "compatibility_date": "2026-03-17",
   "compatibility_flags": ["nodejs_compat"],
-  "vars": {
-    "ALLOWED_ORIGINS": "*.teamchong.net"
-  },
   "r2_buckets": [
     {
       "binding": "CACHE_BUCKET",

@@ -92,12 +92,34 @@ its `<head>` works.
 
 ## Configure (after deploy)
 
-| Env var | Required? | Default | Notes |
-|---|---|---|---|
-| `ALLOWED_ORIGINS` | yes | `""` (empty = block everything) | Comma-separated. Each entry is one of: `https://example.com` (exact origin), `example.com` (exact hostname), `*.example.com` (any subdomain). |
+The Worker is **default-deny** until you tell it which origins may
+embed its meta tags. Set `ALLOWED_ORIGINS` as a **Secret** on the
+deployed Worker — secrets persist across `wrangler deploy` runs,
+unlike `vars` which get overwritten by whatever is in `wrangler.json`.
 
-Set in `wrangler.json` at deploy time, or in the CF dashboard under the
-deployed Worker's Settings → Variables.
+| Variable | Required? | Default | Notes |
+|---|---|---|---|
+| `ALLOWED_ORIGINS` | yes | unset → block everything | Comma-separated. Each entry is one of: `https://example.com` (exact origin), `example.com` (exact hostname), `*.example.com` (any subdomain). |
+
+### Two ways to set it
+
+**Via dashboard (recommended after Deploy-button install):**
+
+1. Cloudflare dashboard → Workers & Pages → `edgesharp-og` → **Settings**
+2. **Variables and Secrets** → **Add** → **Type: Secret**
+3. Name: `ALLOWED_ORIGINS`, Value: your domain(s)
+4. **Save**, then click **Redeploy** so the Worker picks up the secret
+
+**Via CLI:**
+
+```bash
+cd og
+echo 'example.com,*.example.com' | npx wrangler secret put ALLOWED_ORIGINS
+```
+
+Until this is set, every request returns `403` with a message naming
+the rejected origin — that's the safety net. If you forget to
+configure it, you'll see the 403 on the very first share.
 
 ## Templates
 
