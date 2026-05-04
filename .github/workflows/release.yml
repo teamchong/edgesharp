@@ -26,7 +26,7 @@ jobs:
       tag: ${{ steps.version.outputs.tag }}
       should_release: ${{ steps.version.outputs.should_release }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -54,9 +54,9 @@ jobs:
       contents: read
       id-token: write   # required for npm OIDC provenance
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '24'
           cache: pnpm
@@ -75,7 +75,7 @@ jobs:
       # Re-setup Node with registry-url right before publish (matches turboquant
       # pattern). This writes the npmrc so npm CLI uses the OIDC trusted-publisher
       # path on npm 11.5.1+ (Node 24 ships ~11.6).
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
@@ -90,7 +90,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -109,7 +109,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
