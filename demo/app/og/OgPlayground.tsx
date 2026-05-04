@@ -17,10 +17,18 @@ const PLATFORMS = [
   { value: "sq", label: "Square (1200×1200)", aspect: "1" },
 ] as const;
 
-// edgesharp-og is a separate Worker. Local dev: pnpm run dev:og runs it
-// on :8788. Production: set NEXT_PUBLIC_OG_URL to the deployed URL.
+// edgesharp-og is a separate Worker. Resolution order:
+//   1. NEXT_PUBLIC_OG_URL build-time env var (forks should set this in
+//      their CF Workers Builds project's "Build variables" section).
+//   2. In production builds, the canonical URL for this repo's deployed
+//      og Worker.
+//   3. In dev (NODE_ENV !== production), localhost:8788 — matches
+//      `pnpm run dev:og` which runs the og Worker on that port.
 const OG_BASE =
-  process.env.NEXT_PUBLIC_OG_URL?.replace(/\/$/, "") ?? "http://localhost:8788";
+  process.env.NEXT_PUBLIC_OG_URL?.replace(/\/$/, "") ??
+  (process.env.NODE_ENV === "production"
+    ? "https://edgesharp-og.teamchong.net"
+    : "http://localhost:8788");
 
 export default function OgPlayground() {
   const [preset, setPreset] = useState<Preset>("default");
