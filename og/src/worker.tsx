@@ -12,19 +12,20 @@
  *      `*.example.com` wildcards). Default-deny: empty / unset means the
  *      Worker rejects every request.
  *   3. Cache lookup keyed by (referer URL + platform + template path).
- *      Edge cache (caches.default) auto-expires via Cache-Control max-age.
- *      R2 has no built-in TTL — we check `r2Object.uploaded` and treat
- *      anything older than CACHE_MAX_AGE_MS as a miss.
+ *      Edge cache (caches.default) self-expires via Cache-Control max-age.
+ *      R2 entries live forever — refreshed only via POST /purge (single
+ *      page) or POST /refresh (everything from the caller's origin).
  *   4. Fetch the Referer page → parse <head> → build a {{var}} map.
  *   5. Look up the template by URL path (e.g. `/article.html`). Templates
  *      are bundled at build time from `src/templates/`. Path `/` defaults
  *      to the default template.
  *   6. Substitute {{key}} markers, render via Satori → Resvg → PNG.
- *   7. Cache to R2 + Cache API. Return PNG.
+ *   7. Cache to R2 + Cache API with provenance metadata
+ *      (sourceUrl, platform, template, renderTime). Return PNG.
  *
- * Auto-refresh: cards re-render on the next request after CACHE_MAX_AGE
- * elapses, so page metadata edits propagate within 24h with no action.
- * POST /purge wipes immediately for the calling Referer.
+ * Refresh model: total render volume is bounded by the count of edits the
+ * user makes, not by request volume or any clock-driven TTL. Cost stays
+ * predictable at any traffic scale.
  *
  * Adding a template: drop a `.html` file in `src/templates/`, register it
  * in `src/templates/registry.ts`, push to git. Workers Builds redeploys
@@ -53,12 +54,13 @@ const MAX_HTML_BYTES = 5 * 1024 * 1024;
 const FETCH_USER_AGENT =
   "edgesharp-og/1 (+https://github.com/teamchong/edgesharp)";
 
-// Cache lifetime for rendered cards. Both the edge cache (caches.default)
-// and R2 entries are treated as stale after this window — the next request
-// re-renders. POST /purge wipes immediately. Tuned so page metadata edits
-// propagate within a day without manual action.
+// Downstream-facing cache window. Sets the response's Cache-Control
+// max-age; controls how long browsers / social-platform crawlers may
+// hold the card before revalidating with us. Our own R2 storage no
+// longer auto-expires — refresh happens only via POST /purge or
+// POST /refresh, so total render volume is bounded by edits, not by
+// this TTL.
 const CACHE_MAX_AGE_SECONDS = 86400;
-const CACHE_MAX_AGE_MS = CACHE_MAX_AGE_SECONDS * 1000;
 
 const SECURITY_HEADERS = {
   "X-Content-Type-Options": "nosniff",
@@ -151,6 +153,20 @@ async function handleCard(
     return handlePurge(env, url, referer);
   }
 
+  // ── /refresh : list R2, purge every card whose source URL matches the ───
+  // calling Referer's origin. Bulk equivalent of /purge across the whole
+  // bucket. Legacy cards (no customMetadata) are also cleaned up since
+  // they're un-targetable orphans after this change shipped.
+  if (url.pathname === "/refresh" || url.pathname === "/refresh/") {
+    if (request.method !== "POST") {
+      return new Response("POST required for /refresh", {
+        status: 405,
+        headers: { Allow: "POST" },
+      });
+    }
+    return handleRefresh(env, url, referer);
+  }
+
   // ── Parse path: /<platform>/[template-name] ─────────────────────────────
   // /og/                  → platform=og, template=default
   // /og/article.html      → platform=og, template=article.html
@@ -207,12 +223,12 @@ async function handleCard(
   // a one-shot render against a body the user is actively iterating on.
   const cacheId = fnv1a(`${referer.toString()}|${platformKey}|${templateName}`);
   const cacheKey = `${url.origin}/cache/${cacheId}`;
-  const etag = `"${cacheId}"`;
 
-  // GET requests use the L1+L2 cache; POST (custom template) bypasses both.
-  // Edge cache stores Cache-Control max-age, so it self-expires; R2 has no
-  // built-in TTL, so we check r2Object.uploaded against CACHE_MAX_AGE_MS
-  // and treat older entries as a miss (re-render and overwrite).
+  // R2 entries live forever — no auto-expiry. Cards refresh only on
+  // explicit POST /purge or POST /refresh. ETag includes the render
+  // timestamp from R2 customMetadata so the same input-hash with new
+  // content (after purge → re-render) gets a fresh ETag — no stale
+  // 304 served via downstream caches.
   if (!isCustomTemplate) {
     const cache = caches.default;
     const cacheRequest = new Request(cacheKey);
@@ -221,10 +237,11 @@ async function handleCard(
 
     const r2Key = `cards/${cacheId}.png`;
     const r2Object = await env.CACHE_BUCKET.get(r2Key);
-    if (
-      r2Object &&
-      Date.now() - r2Object.uploaded.getTime() < CACHE_MAX_AGE_MS
-    ) {
+    if (r2Object) {
+      const renderTime =
+        parseInt(r2Object.customMetadata?.renderTime ?? "", 10) ||
+        r2Object.uploaded.getTime();
+      const etag = `"${cacheId}-${renderTime.toString(36)}"`;
       const response = new Response(r2Object.body, {
         status: 200,
         headers: {
@@ -269,9 +286,22 @@ async function handleCard(
     });
   }
 
+  // Stamp render time + provenance so /refresh can target by origin and
+  // ETag changes on each re-render (closes the stale-304 gap).
+  const renderTime = Date.now();
   const r2Key = `cards/${cacheId}.png`;
-  ctx.waitUntil(env.CACHE_BUCKET.put(r2Key, result.bytes));
+  ctx.waitUntil(
+    env.CACHE_BUCKET.put(r2Key, result.bytes, {
+      customMetadata: {
+        sourceUrl: referer.toString(),
+        platform: platformKey,
+        template: templateName,
+        renderTime: String(renderTime),
+      },
+    }),
+  );
 
+  const etag = `"${cacheId}-${renderTime.toString(36)}"`;
   const response = new Response(result.bytes as BodyInit, {
     status: 200,
     headers: {
@@ -328,6 +358,97 @@ async function handlePurge(
         // edge cache for up to max-age (24h) then catch up.
         note:
           "R2 entries deleted globally; edge cache deleted at this PoP only — other PoPs catch up within 24h.",
+      },
+      null,
+      2,
+    ),
+    {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+        ...SECURITY_HEADERS,
+      },
+    },
+  );
+}
+
+// ─── Refresh: bulk-purge every card matching caller's origin ─────────────
+
+async function handleRefresh(
+  env: Env,
+  url: URL,
+  referer: URL,
+): Promise<Response> {
+  const cache = caches.default;
+  const callingOrigin = referer.origin;
+  let cursor: string | undefined;
+  let scanned = 0;
+  let purgedOwn = 0;
+  let purgedOrphan = 0;
+  let skippedForeign = 0;
+
+  do {
+    const list = await env.CACHE_BUCKET.list({
+      prefix: "cards/",
+      cursor,
+      limit: 1000,
+      // R2 list omits customMetadata by default — opt in so we can
+      // filter by sourceUrl origin. The `include` field is in the R2
+      // runtime API but missing from this version of workers-types.
+      include: ["customMetadata"],
+    } as R2ListOptions & { include: string[] });
+
+    const promises: Promise<unknown>[] = [];
+    for (const obj of list.objects) {
+      scanned++;
+      const sourceUrl = obj.customMetadata?.sourceUrl;
+      const hash = obj.key.replace(/^cards\//, "").replace(/\.png$/, "");
+      const cacheKey = `${url.origin}/cache/${hash}`;
+
+      // Legacy cards without metadata: orphans we can't track. Clean up.
+      if (!sourceUrl) {
+        promises.push(env.CACHE_BUCKET.delete(obj.key));
+        promises.push(cache.delete(new Request(cacheKey)));
+        purgedOrphan++;
+        continue;
+      }
+
+      // Origin filter: only delete cards from the caller's own site.
+      let matches = false;
+      try {
+        matches = new URL(sourceUrl).origin === callingOrigin;
+      } catch {
+        // Garbled metadata — treat as orphan.
+        promises.push(env.CACHE_BUCKET.delete(obj.key));
+        promises.push(cache.delete(new Request(cacheKey)));
+        purgedOrphan++;
+        continue;
+      }
+
+      if (matches) {
+        promises.push(env.CACHE_BUCKET.delete(obj.key));
+        promises.push(cache.delete(new Request(cacheKey)));
+        purgedOwn++;
+      } else {
+        skippedForeign++;
+      }
+    }
+    await Promise.all(promises);
+
+    cursor = list.truncated ? list.cursor : undefined;
+  } while (cursor);
+
+  return new Response(
+    JSON.stringify(
+      {
+        origin: callingOrigin,
+        scanned,
+        purged: purgedOwn,
+        purgedOrphan,
+        skippedForeign,
+        note:
+          "Cards re-render lazily on next access. R2 is global; edge caches at other PoPs serve stale until max-age expires.",
       },
       null,
       2,

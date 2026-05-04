@@ -12,9 +12,10 @@ edits.
 The Worker reads the `Referer` header to know which page is being
 shared, fetches that page, extracts every `<meta>` tag from its
 `<head>`, substitutes those values into a bundled HTML template, and
-renders a PNG via Satori + Resvg WASM. Cards auto-refresh on a 24h
-cycle so metadata edits propagate without action; `POST /purge` forces
-an immediate re-render.
+renders a PNG via Satori + Resvg WASM. Cards live in R2 indefinitely
+and refresh only on `POST /purge` (one page) or `POST /refresh`
+(everything from your origin) — total render volume is bounded by
+edits, not by request volume.
 
 ## Why this exists
 
@@ -36,6 +37,7 @@ cached the per-render cost is zero.
 GET  /<platform>/[<template-name>]
 POST /<platform>/[<template-name>]    body = HTML template (preview only)
 POST /purge                           wipe all cached variants for the calling page
+POST /refresh                         wipe every card from the calling origin
 ```
 
 | Path | Renders |
@@ -47,6 +49,7 @@ POST /purge                           wipe all cached variants for the calling p
 | `/sq/` | Default template at square dimensions (1200×1200) |
 | `/sq/article.html` | Article template at square dimensions |
 | `POST /purge` | Deletes every (platform × template) cache entry for the page in `Referer` |
+| `POST /refresh` | Lists R2 and deletes every card whose stored `sourceUrl` origin matches the calling `Referer` |
 
 The first path segment is the **platform** (`og` / `x` / `sq`) and
 sets the canvas size. The second segment is the **template name**
@@ -183,23 +186,50 @@ markup needs.
 
 ## Refreshing cards
 
-Cards auto-refresh every 24 hours: edge cache + R2 entries older than
-that are treated as stale and re-rendered on the next request. So
-normal metadata edits (new title, swapped hero image) propagate within
-a day with no action.
+Cards live in R2 indefinitely — there is **no clock-driven auto-expiry**.
+Total render volume scales with the count of edits you make, not with
+request volume or any TTL. That's how the cost stays predictable at any
+scale.
 
-To force a refresh immediately, POST to `/purge` with the page URL in
-the `Referer` header:
+### Two refresh endpoints
+
+**`POST /purge`** — single page
 
 ```bash
 curl -X POST https://og.example.com/purge \
   -H 'Referer: https://yoursite.com/article'
 ```
 
-This deletes every `(platform × template)` variant of the card for
-that page from R2 and the local edge cache. Same `ALLOWED_ORIGINS`
-gate applies — only sites you've opted in can purge their own cards.
-Other PoPs catch up within 24h via normal max-age expiry.
+Deletes every `(platform × template)` variant for that page from R2 and
+the local PoP's edge cache. Use this after editing one post.
+
+**`POST /refresh`** — everything from your origin
+
+```bash
+curl -X POST https://og.example.com/refresh \
+  -H 'Referer: https://yoursite.com/'
+```
+
+Lists R2 and deletes every card whose stored `sourceUrl` origin matches
+the calling Referer's origin. Returns a JSON summary:
+
+```json
+{
+  "origin": "https://yoursite.com",
+  "scanned": 1247,
+  "purged": 1247,
+  "purgedOrphan": 0,
+  "skippedForeign": 0
+}
+```
+
+Use this after a template change, branding update, or anything else that
+should invalidate every card. Cards re-render lazily on the next access.
+
+Both endpoints honor `ALLOWED_ORIGINS` — callers from origins you haven't
+opted in get 403. `/refresh` further filters by stored `sourceUrl` so a
+caller can only wipe cards they originally rendered. Other PoPs catch up
+on edge-cache `max-age` expiry (24h).
 
 ### Social platforms cache cards on their side too
 
@@ -238,11 +268,11 @@ fee). R2 storage is
 PNG cards are 30–80 KB so 100k unique cards = ~5 GB = ~8¢/month.
 
 After the first cold render of each unique `(referer, platform,
-template)`, requests within the 24h cache window are free R2 reads
-(or free edge-cache hits). Once a day per card the next request
-re-renders so content stays in sync with page metadata. Bills are
-bounded by `distinct cards × refresh cycles per day`, not raw fetch
-count.
+template)`, every subsequent request — Twitter crawler, Slack, real
+reader — is a free R2 read or edge-cache hit. Cards never auto-expire,
+so a card you rendered today still serves from R2 next year unless you
+explicitly `/purge` or `/refresh`. **Bills scale with edits, not with
+fetch volume.**
 
 ## Limits
 
@@ -253,8 +283,9 @@ count.
   defensively).
 - POST body capped at 5 MB.
 - Output is PNG only (Resvg's only format).
-- Cards cached for 24h at edge + R2; the next request after that
-  re-renders. POST `/purge` to refresh sooner.
+- Cards live in R2 indefinitely; refresh only via `POST /purge`
+  (single page) or `POST /refresh` (origin-wide). Edge-cache `max-age`
+  is 24h so downstream caches revalidate within a day.
 
 ## Why no npm package
 
