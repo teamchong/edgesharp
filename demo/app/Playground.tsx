@@ -26,6 +26,27 @@ function fmtBytes(n: number) {
   return `${(n / (1024 * 1024)).toFixed(2)} MB`;
 }
 
+// Picsum's `/W/H` URL 302s to a different random image on every fetch, so
+// the browser-side <img> and the Worker's server-side fetch end up showing
+// unrelated images and the byte comparison is meaningless. Inject a stable
+// seed (`/seed/<rand>/W/H`) once when the URL enters the playground — the
+// rendered image is still chosen at random, but every subsequent fetch
+// resolves to the same one.
+function stabilizePicsum(input: string): string {
+  try {
+    const u = new URL(input);
+    if (u.hostname !== "picsum.photos") return input;
+    if (u.pathname.startsWith("/seed/") || u.pathname.startsWith("/id/")) {
+      return input;
+    }
+    const seed = Math.random().toString(36).slice(2, 10);
+    u.pathname = `/seed/${seed}${u.pathname}`;
+    return u.toString();
+  } catch {
+    return input;
+  }
+}
+
 export default function Playground() {
   const [url, setUrl] = useState(SAMPLES[0]!.url);
   const [width, setWidth] = useState<number>(640);
@@ -65,10 +86,23 @@ export default function Playground() {
   async function run() {
     setError(null);
     setLoading(true);
+
+    // Late-stabilize: if the user pasted a random Picsum URL into the input
+    // field, lock it to a seed before kicking off the side-by-side. Updates
+    // the visible URL so the user sees what was actually used.
+    const stableUrl = stabilizePicsum(url);
+    if (stableUrl !== url) setUrl(stableUrl);
+    const params = new URLSearchParams({
+      url: stableUrl,
+      w: String(width),
+      q: String(quality),
+    });
+    const stableRequestUrl = `/_next/image?${params}`;
+
     const accept = FORMATS.find((f) => f.value === format)?.accept ?? "*/*";
     const t0 = performance.now();
     try {
-      const res = await fetch(requestUrl, { headers: { Accept: accept } });
+      const res = await fetch(stableRequestUrl, { headers: { Accept: accept } });
       if (!res.ok) {
         const text = await res.text();
         setError(`${res.status} · ${text.slice(0, 200)}`);
@@ -117,7 +151,7 @@ export default function Playground() {
           <select
             value=""
             onChange={(e) => {
-              if (e.target.value) setUrl(e.target.value);
+              if (e.target.value) setUrl(stabilizePicsum(e.target.value));
             }}
             className="mt-2 w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-md text-sm text-neutral-300 focus:outline-none"
           >
