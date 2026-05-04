@@ -226,6 +226,10 @@ scale.
 ```bash
 curl -X POST https://og.example.com/purge \
   -H 'Referer: https://yoursite.com/article'
+
+# or via the CLI (no Referer dance):
+npx edgesharp-og purge https://yoursite.com/article \
+  --worker https://og.example.com
 ```
 
 Deletes every `(platform × template)` variant for that page from R2 and
@@ -236,6 +240,10 @@ the local PoP's edge cache. Use this after editing one post.
 ```bash
 curl -X POST https://og.example.com/refresh \
   -H 'Referer: https://yoursite.com/'
+
+# or via the CLI:
+npx edgesharp-og refresh https://yoursite.com \
+  --worker https://og.example.com
 ```
 
 Lists R2 and deletes every card whose stored `sourceUrl` origin matches

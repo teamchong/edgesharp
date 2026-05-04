@@ -3,3 +3,4 @@ packages:
   - "demo"
   - "docs"
   - "og"
+  - "og/cli"

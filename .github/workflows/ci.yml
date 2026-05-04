@@ -50,6 +50,12 @@ jobs:
       - name: Typecheck og Worker
         run: cd og && npx tsc --noEmit
 
+      - name: Typecheck og CLI
+        run: pnpm --filter edgesharp-og-cli run typecheck
+
+      - name: og CLI tests
+        run: pnpm --filter edgesharp-og-cli run test
+
   deploy-docs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
