@@ -11,13 +11,20 @@
  *   2. Validate Referer's origin against `ALLOWED_ORIGINS` (CSV, supports
  *      `*.example.com` wildcards). Default-deny: empty / unset means the
  *      Worker rejects every request.
- *   3. Cache lookup keyed by (referer URL + template path).
+ *   3. Cache lookup keyed by (referer URL + platform + template path).
+ *      Edge cache (caches.default) auto-expires via Cache-Control max-age.
+ *      R2 has no built-in TTL — we check `r2Object.uploaded` and treat
+ *      anything older than CACHE_MAX_AGE_MS as a miss.
  *   4. Fetch the Referer page → parse <head> → build a {{var}} map.
  *   5. Look up the template by URL path (e.g. `/article.html`). Templates
  *      are bundled at build time from `src/templates/`. Path `/` defaults
  *      to the default template.
  *   6. Substitute {{key}} markers, render via Satori → Resvg → PNG.
  *   7. Cache to R2 + Cache API. Return PNG.
+ *
+ * Auto-refresh: cards re-render on the next request after CACHE_MAX_AGE
+ * elapses, so page metadata edits propagate within 24h with no action.
+ * POST /purge wipes immediately for the calling Referer.
  *
  * Adding a template: drop a `.html` file in `src/templates/`, register it
  * in `src/templates/registry.ts`, push to git. Workers Builds redeploys
@@ -26,7 +33,7 @@
 
 import { extractMetadata, emptyMetadata, type PageMetadata } from "./metadata.js";
 import { PLATFORMS, isPlatformKey } from "./platforms.js";
-import { resolveTemplate } from "./templates/registry.js";
+import { resolveTemplate, TEMPLATES } from "./templates/registry.js";
 import { renderHtml } from "./render.js";
 
 interface Env {
@@ -45,6 +52,13 @@ interface Env {
 const MAX_HTML_BYTES = 5 * 1024 * 1024;
 const FETCH_USER_AGENT =
   "edgesharp-og/1 (+https://github.com/teamchong/edgesharp)";
+
+// Cache lifetime for rendered cards. Both the edge cache (caches.default)
+// and R2 entries are treated as stale after this window — the next request
+// re-renders. POST /purge wipes immediately. Tuned so page metadata edits
+// propagate within a day without manual action.
+const CACHE_MAX_AGE_SECONDS = 86400;
+const CACHE_MAX_AGE_MS = CACHE_MAX_AGE_SECONDS * 1000;
 
 const SECURITY_HEADERS = {
   "X-Content-Type-Options": "nosniff",
@@ -126,6 +140,17 @@ async function handleCard(
     );
   }
 
+  // ── /purge : wipe every (platform × template) variant for this Referer ──
+  if (url.pathname === "/purge" || url.pathname === "/purge/") {
+    if (request.method !== "POST") {
+      return new Response("POST required for /purge", {
+        status: 405,
+        headers: { Allow: "POST" },
+      });
+    }
+    return handlePurge(env, url, referer);
+  }
+
   // ── Parse path: /<platform>/[template-name] ─────────────────────────────
   // /og/                  → platform=og, template=default
   // /og/article.html      → platform=og, template=article.html
@@ -185,18 +210,10 @@ async function handleCard(
   const etag = `"${cacheId}"`;
 
   // GET requests use the L1+L2 cache; POST (custom template) bypasses both.
+  // Edge cache stores Cache-Control max-age, so it self-expires; R2 has no
+  // built-in TTL, so we check r2Object.uploaded against CACHE_MAX_AGE_MS
+  // and treat older entries as a miss (re-render and overwrite).
   if (!isCustomTemplate) {
-    if (request.headers.get("If-None-Match") === etag) {
-      return new Response(null, {
-        status: 304,
-        headers: {
-          ETag: etag,
-          "Cache-Control": "public, max-age=31536000, immutable",
-          ...SECURITY_HEADERS,
-        },
-      });
-    }
-
     const cache = caches.default;
     const cacheRequest = new Request(cacheKey);
     const cached = await cache.match(cacheRequest);
@@ -204,12 +221,15 @@ async function handleCard(
 
     const r2Key = `cards/${cacheId}.png`;
     const r2Object = await env.CACHE_BUCKET.get(r2Key);
-    if (r2Object) {
+    if (
+      r2Object &&
+      Date.now() - r2Object.uploaded.getTime() < CACHE_MAX_AGE_MS
+    ) {
       const response = new Response(r2Object.body, {
         status: 200,
         headers: {
           "Content-Type": "image/png",
-          "Cache-Control": "public, max-age=31536000, immutable",
+          "Cache-Control": `public, max-age=${CACHE_MAX_AGE_SECONDS}`,
           ETag: etag,
           ...SECURITY_HEADERS,
         },
@@ -256,7 +276,7 @@ async function handleCard(
     status: 200,
     headers: {
       "Content-Type": result.contentType,
-      "Cache-Control": "public, max-age=31536000, immutable",
+      "Cache-Control": `public, max-age=${CACHE_MAX_AGE_SECONDS}`,
       ETag: etag,
       ...SECURITY_HEADERS,
     },
@@ -265,6 +285,62 @@ async function handleCard(
   const cacheRequest = new Request(cacheKey);
   ctx.waitUntil(cache.put(cacheRequest, response.clone()));
   return response;
+}
+
+// ─── Purge: delete every cached variant for a given Referer ──────────────
+
+async function handlePurge(
+  env: Env,
+  url: URL,
+  referer: URL,
+): Promise<Response> {
+  const cache = caches.default;
+  const purged: string[] = [];
+  const promises: Promise<unknown>[] = [];
+
+  for (const platformKey of Object.keys(PLATFORMS)) {
+    for (const templateName of Object.keys(TEMPLATES)) {
+      const cacheId = fnv1a(
+        `${referer.toString()}|${platformKey}|${templateName}`,
+      );
+      const r2Key = `cards/${cacheId}.png`;
+      const cacheKey = `${url.origin}/cache/${cacheId}`;
+
+      promises.push(env.CACHE_BUCKET.delete(r2Key));
+      promises.push(cache.delete(new Request(cacheKey)));
+
+      const path = templateName
+        ? `/${platformKey}/${templateName}`
+        : `/${platformKey}/`;
+      purged.push(path);
+    }
+  }
+
+  await Promise.all(promises);
+
+  return new Response(
+    JSON.stringify(
+      {
+        purged,
+        referer: referer.toString(),
+        // caches.default.delete only purges this PoP. R2 is global so the
+        // next request anywhere re-renders; other PoPs serve stale from
+        // edge cache for up to max-age (24h) then catch up.
+        note:
+          "R2 entries deleted globally; edge cache deleted at this PoP only — other PoPs catch up within 24h.",
+      },
+      null,
+      2,
+    ),
+    {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+        ...SECURITY_HEADERS,
+      },
+    },
+  );
 }
 
 // ─── Variable substitution ────────────────────────────────────────────────

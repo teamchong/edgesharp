@@ -12,7 +12,9 @@ edits.
 The Worker reads the `Referer` header to know which page is being
 shared, fetches that page, extracts every `<meta>` tag from its
 `<head>`, substitutes those values into a bundled HTML template, and
-renders a PNG via Satori + Resvg WASM. Result is cached in R2 forever.
+renders a PNG via Satori + Resvg WASM. Cards auto-refresh on a 24h
+cycle so metadata edits propagate without action; `POST /purge` forces
+an immediate re-render.
 
 ## Why this exists
 
@@ -33,6 +35,7 @@ cached the per-render cost is zero.
 ```
 GET  /<platform>/[<template-name>]
 POST /<platform>/[<template-name>]    body = HTML template (preview only)
+POST /purge                           wipe all cached variants for the calling page
 ```
 
 | Path | Renders |
@@ -43,14 +46,15 @@ POST /<platform>/[<template-name>]    body = HTML template (preview only)
 | `/x/article.html` | Article template at Twitter / X dimensions |
 | `/sq/` | Default template at square dimensions (1200×1200) |
 | `/sq/article.html` | Article template at square dimensions |
+| `POST /purge` | Deletes every (platform × template) cache entry for the page in `Referer` |
 
 The first path segment is the **platform** (`og` / `x` / `sq`) and
 sets the canvas size. The second segment is the **template name**
 (matching a file in `src/templates/`); empty means the default.
 
-POST requests use the body as a one-shot template — used by the demo
-playground to preview custom HTML without redeploying. POST renders
-are never cached.
+POST requests on a platform path use the body as a one-shot template —
+used by the demo playground to preview custom HTML without redeploying.
+POST renders are never cached.
 
 ### What the meta tag looks like
 
@@ -155,6 +159,41 @@ And custom keys: any `<meta name="my-thing" content="...">` becomes
 `{{my-thing}}`. Templates can reference whatever variables their
 markup needs.
 
+## Refreshing cards
+
+Cards auto-refresh every 24 hours: edge cache + R2 entries older than
+that are treated as stale and re-rendered on the next request. So
+normal metadata edits (new title, swapped hero image) propagate within
+a day with no action.
+
+To force a refresh immediately, POST to `/purge` with the page URL in
+the `Referer` header:
+
+```bash
+curl -X POST https://og.example.com/purge \
+  -H 'Referer: https://yoursite.com/article'
+```
+
+This deletes every `(platform × template)` variant of the card for
+that page from R2 and the local edge cache. Same `ALLOWED_ORIGINS`
+gate applies — only sites you've opted in can purge their own cards.
+Other PoPs catch up within 24h via normal max-age expiry.
+
+### Social platforms cache cards on their side too
+
+Even after our cache is fresh, Twitter / Facebook / LinkedIn / Slack
+keep their own copy of the rendered PNG until *they* re-fetch. Use
+each platform's debugger to force it:
+
+| Platform | How to force re-fetch |
+|---|---|
+| Twitter / X | [Card Validator](https://cards-dev.twitter.com/validator) |
+| Facebook | [Sharing Debugger](https://developers.facebook.com/tools/debug/) |
+| LinkedIn | [Post Inspector](https://www.linkedin.com/post-inspector/) |
+| Slack | post the link, then `/remove-link-preview` in the channel |
+| Discord | edit the message — Discord re-fetches metadata on edit |
+| iMessage / WhatsApp | re-fetch within 24h on their own; no manual force |
+
 ## Bundle size
 
 | Component | Raw |
@@ -177,9 +216,11 @@ fee). R2 storage is
 PNG cards are 30–80 KB so 100k unique cards = ~5 GB = ~8¢/month.
 
 After the first cold render of each unique `(referer, platform,
-template)`, every subsequent request — Twitter crawler, Slack, real
-reader — is a free R2 read. Bills are bounded by the count of
-distinct cards, not the count of fetches.
+template)`, requests within the 24h cache window are free R2 reads
+(or free edge-cache hits). Once a day per card the next request
+re-renders so content stays in sync with page metadata. Bills are
+bounded by `distinct cards × refresh cycles per day`, not raw fetch
+count.
 
 ## Limits
 
@@ -190,6 +231,8 @@ distinct cards, not the count of fetches.
   defensively).
 - POST body capped at 5 MB.
 - Output is PNG only (Resvg's only format).
+- Cards cached for 24h at edge + R2; the next request after that
+  re-renders. POST `/purge` to refresh sooner.
 
 ## Why no npm package
 
